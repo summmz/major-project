@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify - Web Player</title>
+    <link rel="preconnect" href="https://identity.netlify.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="css/style.css">
+    <script async type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="left">
+            <div class="home">
+                <div class="logo">
+                    <svg viewBox="0 0 1134 340" style="width: 100px; height: 30px; fill: white;">
+                        <path fill="currentColor"
+                            d="M8 171c0 92 76 168 168 168s168-76 168-168S268 4 176 4 8 79 8 171zm230 78c-39-24-89-30-147-17-14 2-16-18-4-20 64-15 118-8 162 19 11 7 0 24-11 18zm17-45c-45-28-114-36-167-20-17 5-23-21-7-25 61-18 136-9 188 23 14 9 0 31-14 22zM80 133c-17 6-28-23-9-30 59-18 159-15 221 22 17 9 1 37-17 27-54-32-144-35-195-19zm379 91c-17 0-33-6-47-20-1 0-1 1-1 1l-16 19c-1 1-1 2 0 3 18 16 40 24 64 24 34 0 55-19 55-47 0-24-15-37-50-46-29-7-34-12-34-22s10-16 23-16 25 5 39 15c0 0 1 1 2 1s1-1 1-1l14-20c1-1 1-1 0-2-16-13-35-20-56-20-31 0-53 19-53 46 0 29 20 38 52 46 28 6 32 12 32 22 0 11-10 17-25 17zm95-77v-13c0-1-1-2-2-2h-26c-1 0-2 1-2 2v147c0 1 1 2 2 2h26c1 0 2-1 2-2v-46c10 11 21 16 36 16 27 0 54-21 54-61s-27-60-54-60c-15 0-26 5-36 17zm30 78c-18 0-31-15-31-35s13-34 31-34 30 14 30 34-12 35-30 35zm68-34c0 34 27 60 62 60s62-27 62-61-26-60-61-60-63 27-63 61zm30-1c0-20 13-34 32-34s33 15 33 35-13 34-32 34-33-15-33-35zm140-58v-29c0-1 0-2-1-2h-26c-1 0-2 1-2 2v29h-13c-1 0-2 1-2 2v22c0 1 1 2 2 2h13v58c0 23 11 35 34 35 9 0 18-2 25-6 1 0 1-1 1-2v-21c0-1 0-2-1-2h-2c-5 3-11 4-16 4-8 0-12-4-12-13v-54h30c1 0 2-1 2-2v-22c0-1-1-2-2-2h-30zm129-3c0-11 4-15 13-15 5 0 10 0 15 2h1s1-1 1-2V93c0-1 0-2-1-2-5-2-12-3-22-3-24 0-36 14-36 39v5h-13c-1 0-2 1-2 2v22c0 1 1 2 2 2h13v89c0 1 1 2 2 2h26c1 0 1-1 1-2v-89h25l37 89c-4 9-8 11-14 11-5 0-10-1-15-4h-1l-1 1-9 19c0 1 0 3 1 3 9 5 17 7 27 7 19 0 30-9 39-33l45-116v-2c0-1-1-1-2-1h-27c-1 0-1 1-1 2l-28 78-30-78c0-1-1-2-2-2h-44v-3zm-83 3c-1 0-2 1-2 2v113c0 1 1 2 2 2h26c1 0 1-1 1-2V134c0-1 0-2-1-2h-26zm-6-33c0 10 9 19 19 19s18-9 18-19-8-18-18-18-19 8-19 18zm245 69c10 0 19-8 19-18s-9-18-19-18-18 8-18 18 8 18 18 18zm0-34c9 0 17 7 17 16s-8 16-17 16-16-7-16-16 7-16 16-16zm4 18c3-1 5-3 5-6 0-4-4-6-8-6h-8v19h4v-6h4l4 6h5zm-3-9c2 0 4 1 4 3s-2 3-4 3h-4v-6h4z" />
+                    </svg>
+                </div>
+                <ul>
+                    <li id="homeNav" class="nav-item active" onclick="showHome()">
+                        <img src="img/home.svg" alt="">
+                        Home
+                    </li>
+                    <li id="searchNav" class="nav-item" onclick="showSearch()">
+                        <img src="img/search.svg" alt="">
+                        Search
+                    </li>
+                    <li id="libraryNav" class="nav-item mobile-only-nav" onclick="showLikedSongs()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>
+                        </svg>
+                        Library
+                    </li>
+                </ul>
+            </div>
+            <div class="library">
+                <div class="library-heading">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="white">
+                        <path
+                            d="M3 22a1 1 0 0 1-1-1V3a1 1 0 0 1 2 0v18a1 1 0 0 1-1 1zM15.5 2.134A1 1 0 0 0 14 3v18a1 1 0 0 0 1.5.866l8-9a1 1 0 0 0 0-1.732l-8-9z" />
+                    </svg>
+                    <h2>Your Library</h2>
+                </div>
+                <div class="create-playlist" onclick="createPlaylist()">
+                    <h4>+ Create Playlist</h4>
+                </div>
+                <div class="create-playlist" onclick="addSong()">
+                    <h4>+ Add Song</h4>
+                </div>
+                <div class="playlist-item" id="likedSongsNav" onclick="showLikedSongs()" style="padding:8px 14px;cursor:pointer;">
+                    <h4 style="color:#1db954;">&#9829; Liked Songs</h4>
+                </div>
+                <div class="playlist-list" id="playlistList">
+                    <!-- User playlists will appear here -->
+                </div>
+                <div class="footer">
+                    <div><a href="https://www.spotify.com/jp/legal/">Legal</a></div>
+                    <div><a href="https://www.spotify.com/jp/privacy/">Privacy Center</a></div>
+                    <div><a href="https://www.spotify.com/jp/legal/privacy-policy/">Privacy Policy</a></div>
+                    <div><a href="https://www.spotify.com/jp/legal/cookies-policy/">Cookies</a></div>
+                    <div><a href="https://www.spotify.com/jp/legal/privacy-policy/#s3/">About Ads</a></div>
+                    <div><a href="https://www.spotify.com/jp/accessibility/">Accessibility</a></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="right">
+            <div class="header">
+                <div class="nav">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+                        onclick="goBack()">
+                        <path d="M15 6C15 6 9.00001 10.4189 9 12C8.99999 13.5812 15 18 15 18" stroke="#ffffff"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+                        onclick="goForward()">
+                        <path d="M9.00005 6C9.00005 6 15 10.4189 15 12C15 13.5812 9 18 9 18" stroke="#ffffff"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <div class="buttons" id="authButtons">
+                    <button class="signupbtn" onclick="openSignup()">Sign up</button>
+                    <button class="loginbtn" onclick="openLogin()">Log in</button>
+                </div>
+                <div class="buttons" id="userProfile" style="display: none;">
+                    <button class="create-playlist-btn" onclick="createPlaylist()">+ Playlist</button>
+                    <button class="add-song-btn" onclick="addSong()">+ Add Song</button>
+                    <span id="userName">Welcome!</span>
+                    <button class="loginbtn" onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+            <!-- Home Page -->
+            <div id="homePage" class="content-page active">
+                <h1 id="greeting"></h1>
+                <div id="recentlyPlayedSection" style="display:none;">
+                    <h2 style="margin-bottom:12px;">Recently Played</h2>
+                    <div class="recently-played-scroll" id="recentlyPlayedContainer"></div>
+                </div>
+                <div class="cardContainer">
+                    <div class="card" onclick="playPlaylist('popular')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/Escravidao Projects __ Photos, videos, logos, illustrations and branding.jpeg" alt="Happy Hits">
+                        <h2>Today's Top Hits</h2>
+                        <p>The most popular songs right now</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('Punjabi')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/undisputed sukha.jpeg" alt="Chill Vibes">
+                        <h2>Hot Hits Punjabi</h2>
+                        <p>Catch the hottest Punjabi tracks</p>
+                    </div>
+
+
+
+                    <div class="card" onclick="playPlaylist('SabrinaSessions')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/146ee974-803a-4ee7-a2c5-9a5ec1d30ef7.jpeg" alt="Workout Beats">
+                        <h2>Sabrina Sessions</h2>
+                        <p>Smooth and catchy tunes from Sabrina Carpenter.</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('workout')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/summer playlist.jpeg" alt="Workout Beats">
+                        <h2>Workout Mix</h2>
+                        <p>High-energy tracks to power your workout</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('SereneRoads')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/Tony Skeor.jpeg" alt="Workout Beats">
+                        <h2>Serene Roads</h2>
+                        <p>Calm, soothing tracks to make every drive a relaxing escape.</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('MidnightHeat')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/download.jpeg" alt="Workout Beats">
+                        <h2>Midnight Heat</h2>
+                        <p>Sensual, bold tracks to set the mood.</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('SilkSheetsRedLights')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/download (3).jpeg" alt="Workout Beats">
+                        <h2>Silk Sheets & Red Lights</h2>
+                        <p>Seduction in every beat.</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('BeachVibes')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/Alison Sudol _ A Fine Frenzy.jpeg" alt="Workout Beats">
+                        <h2>Beach Vibes</h2>
+                        <p>Chill, sunny tracks for a carefree seaside mood.</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('LeatherLace')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/download (2).jpeg" alt="Workout Beats">
+                        <h2>Leather & Lace</h2>
+                        <p>Soft temptation, hard edge.</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('SpellboundGrooves')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/24540031-8ce9-47cf-bbe4-0855bd2c01c9.jpeg" alt="Workout Beats">
+                        <h2>Spellbound Grooves</h2>
+                        <p>Hypnotic rhythms and seductive melodies to enchant your night.</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('Songsinshower')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+
+                        <img loading="lazy" src="img/Shower II.jpeg" alt="Workout Beats">
+                        <h2>Songs to Sing in Shower</h2>
+                        <p>Melancholic tunes that echo in the steam.</p>
+                    </div>
+
+
+                    <div class="card" onclick="playPlaylist('Cherrystainedlips')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/download (4).jpeg" alt="Workout Beats">
+                        <h2>Cherry-Stained Lips</h2>
+                        <p>Sweet, messy, addictive.</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('Rockclassics')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/Michael Jackson_.jpeg" alt="Rock Anthems">
+                        <h2>Rock Classics</h2>
+                        <p>The greatest rock songs of all time</p>
+                    </div>
+
+
+
+                    <div class="card" onclick="playPlaylist('Wetwindows')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/Rain in car.jpeg" alt="Workout Beats">
+                        <h2>Wet Windows</h2>
+                        <p>Smooth beats that mimic falling rain.</p>
+                    </div>
+
+
+                    <div class="card" onclick="playPlaylist('ignitethebeat')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/Burning Piano.jpeg" alt="Workout Beats">
+                        <h2>Ignite the Beat</h2>
+                        <p>Tracks that set your soul on fire.</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('chillvibes')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/wondering in the sky.jpeg" alt="Chill Vibes">
+                        <h2>Chill Vibes</h2>
+                        <p>Relax and unwind with these mellow tracks</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('Jazzessentials')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/55f3a45b-daa8-4651-aa0b-085129ea42ec.jpeg" alt="Jazz Classics">
+                        <h2>Jazz Essentials</h2>
+                        <p>Timeless jazz standards and smooth melodies</p>
+                    </div>
+
+                    <div class="card" onclick="playPlaylist('indiefavs')">
+                        <div class="play">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                                <circle cx="24" cy="24" r="24" fill="#1DB954" />
+                                <polygon points="18,14 34,24 18,34" fill="black" />
+                            </svg>
+                        </div>
+                        <img loading="lazy" src="img/0a8d4bcf-797a-4fe1-8cd8-143656c3b412.jpeg" alt="Indie Folk">
+                        <h2>Indie Favorites</h2>
+                        <p>Discover indie gems and emerging artists</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Page -->
+            <div id="searchPage" class="content-page">
+                <h1>Search</h1>
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="What do you want to listen to?"
+                        oninput="debouncedSearch(this.value)">
+                </div>
+                <div class="search-results" id="searchResults">
+                    <h2>Browse all</h2>
+                    <div class="search-categories">
+                        <div class="category-card" style="background-color: #e13300;" onclick="searchCategory('pop')">
+                            <h3>Pop</h3>
+                        </div>
+                        <div class="category-card" style="background-color: #ba5d07;" onclick="searchCategory('rock')">
+                            <h3>Rock</h3>
+                        </div>
+                        <div class="category-card" style="background-color: #8d67ab;" onclick="searchCategory('hip-hop')">
+                            <h3>Punjabi</h3>
+                        </div>
+                        <div class="category-card" style="background-color: #1e3264;" onclick="searchCategory('jazz')">
+                            <h3>Jazz</h3>
+                        </div>
+                        <div class="category-card" style="background-color: #148a08;" onclick="searchCategory('electronic')">
+                            <h3>Workout</h3>
+                        </div>
+                        <div class="category-card" style="background-color: #503750;" onclick="searchCategory('indie')">
+                            <h3>Indie</h3>
+                        </div>
+                       
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playlist Page -->
+            <div id="playlistPage" class="content-page">
+                <h1 id="playlistTitle">Playlist</h1>
+                <div id="playlistContent">
+                    <!-- Playlist content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Legal Footer -->
+    <div class="mobile-legal-footer">
+        <div class="legal-links">
+            <a href="https://www.spotify.com/jp/legal/">Legal</a>
+            <a href="https://www.spotify.com/jp/privacy/">Privacy Center</a>
+            <a href="https://www.spotify.com/jp/legal/privacy-policy/">Privacy Policy</a>
+            <a href="https://www.spotify.com/jp/legal/cookies-policy/">Cookies</a>
+            <a href="https://www.spotify.com/jp/legal/privacy-policy/#s3/">About Ads</a>
+            <a href="https://www.spotify.com/jp/accessibility/">Accessibility</a>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Login and Signup handled by Netlify Identity Widget -->
+
+    <!-- Create Playlist Modal -->
+    <div id="createPlaylistModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('createPlaylistModal')">&times;</button>
+            <h2>Create Playlist</h2>
+            <form onsubmit="saveNewPlaylist(event)">
+                <div class="form-group">
+                    <label for="playlistName">Playlist name</label>
+                    <input type="text" id="playlistName" placeholder="My Playlist #1" required>
+                </div>
+                <div class="form-group">
+                    <label for="playlistDescription">Description</label>
+                    <input type="text" id="playlistDescription" placeholder="Add an optional description">
+                </div>
+                <button type="submit" class="modal-btn">Create</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Song Modal -->
+    <div id="addSongModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('addSongModal')">&times;</button>
+            <h2>Add Song</h2>
+            <form onsubmit="addSongToPlaylist(event)">
+                <div class="form-group">
+                    <label for="songTitle">Song Title</label>
+                    <input type="text" id="songTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="songArtist">Artist</label>
+                    <input type="text" id="songArtist" required>
+                </div>
+                <div class="form-group">
+                    <label for="songFile">Audio File</label>
+                    <input type="file" id="songFile" accept="audio/*" required>
+                    <small>Supported: MP3, WAV, OGG, M4A</small>
+                </div>
+                <div class="form-group">
+                    <label for="songImage">Cover Image (optional)</label>
+                    <input type="file" id="songImage" accept="image/*">
+                    <small>Supported: JPG, PNG, GIF</small>
+                </div>
+                <div class="form-group">
+                    <label for="targetPlaylist">Add to Playlist</label>
+                    <select id="targetPlaylist" required>
+                        <option value="">Select a playlist</option>
+                    </select>
+                </div>
+                <button type="submit" class="modal-btn">Add Song</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Player Bar -->
+    <div class="playbar">
+        <div class="songinfo">
+            <img id="currentSongImage" src="img/home.svg" alt="Current Song">
+            <div class="song-details">
+                <h4 id="currentSongTitle">Select a song</h4>
+                <p id="currentSongArtist">Choose from playlists above</p>
+            </div>
+            <button class="like-btn" id="playerLikeBtn" onclick="toggleLikeSong()" title="Like">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+            </button>
+            <button class="share-btn" id="playerShareBtn" onclick="shareSong()" title="Share">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="songbtns">
+            <div class="controls">
+<svg width="16" height="16" viewBox="0 0 16 16" id="shuffleBtn" class="1">
+    <path fill="currentColor"
+        d="M0 3.5A.5.5 0 0 1 .5 3H1c2.202 0 3.827 1.24 4.874 2.418.49.552.865 1.102 1.126 1.532.26-.43.636-.98 1.126-1.532C9.173 4.24 10.798 3 13 3v1c-1.798 0-3.173 1.01-4.126 2.082A9.624 9.624 0 0 0 7.556 8a9.624 9.624 0 0 0 1.317 1.918C9.828 10.99 11.204 12 13 12v1c-2.202 0-3.827-1.24-4.874-2.418A10.595 10.595 0 0 1 7 9.05c-.26.43-.636.98-1.126 1.532C4.827 11.76 3.202 13 1 13H.5a.5.5 0 0 1 0-1H1c1.798 0 3.173-1.01 4.126-2.082A9.624 9.624 0 0 0 6.444 8a9.624 9.624 0 0 0-1.317-1.918C4.172 5.01 2.796 4 1 4H.5a.5.5 0 0 1-.5-.5z" />
+    <path fill="currentColor"
+        d="M13 5.466V1.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192zm0 9v-3.932a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192z" />
+</svg>
+                <svg id="prevBtn" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+                    color="#000000" fill="none" onclick="previousSong()">
+                    <path
+                        d="M8.06492 12.6258C8.31931 13.8374 9.67295 14.7077 12.3802 16.4481C15.3247 18.3411 16.797 19.2876 17.9895 18.9229C18.3934 18.7994 18.7654 18.5823 19.0777 18.2876C20 17.4178 20 15.6118 20 12C20 8.38816 20 6.58224 19.0777 5.71235C18.7654 5.41773 18.3934 5.20057 17.9895 5.07707C16.797 4.71243 15.3247 5.6589 12.3802 7.55186C9.67295 9.29233 8.31931 10.1626 8.06492 11.3742C7.97836 11.7865 7.97836 12.2135 8.06492 12.6258Z"
+                        stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
+                    <path d="M4 4L4 20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                </svg>
+                <div id="playPauseBtn" class="playbtn" onclick="togglePlay()">
+                    <svg id="playIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+                        color="#000000" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"></circle>
+                        <path
+                            d="M15.9453 12.3948C15.7686 13.0215 14.9333 13.4644 13.2629 14.3502C11.648 15.2064 10.8406 15.6346 10.1899 15.4625C9.9209 15.3913 9.6758 15.2562 9.47812 15.0701C9 14.6198 9 13.7465 9 12C9 10.2535 9 9.38018 9.47812 8.92995C9.6758 8.74381 9.9209 8.60868 10.1899 8.53753C10.8406 8.36544 11.648 8.79357 13.2629 9.64983C14.9333 10.5356 15.7686 10.9785 15.9453 11.6052C16.0182 11.8639 16.0182 12.1361 15.9453 12.3948Z"
+                            stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path>
+                    </svg>
+                    <svg id="pauseIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+                        color="#111111" fill="none" style="display: none;">
+                        <circle cx="12" cy="12" r="10" stroke="#111111" stroke-width="1.5" />
+                        <path d="M9.5 9L9.5 15M14.5 9V15" stroke="#111111" stroke-width="1.5" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <svg id="nextBtn" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+                    color="#000000" fill="none" onclick="nextSong()">
+                    <path
+                        d="M15.9351 12.6258C15.6807 13.8374 14.327 14.7077 11.6198 16.4481C8.67528 18.3411 7.20303 19.2876 6.01052 18.9229C5.60662 18.7994 5.23463 18.5823 4.92227 18.2876C4 17.4178 4 15.6118 4 12C4 8.38816 4 6.58224 4.92227 5.71235C5.23463 5.41773 5.60662 5.20057 6.01052 5.07707C7.20304 4.71243 8.67528 5.6589 11.6198 7.55186C14.327 9.29233 15.6807 10.1626 15.9351 11.3742C16.0216 11.7865 16.0216 12.2135 15.9351 12.6258Z"
+                        stroke="#141B34" stroke-width="1.5" stroke-linejoin="round" />
+                    <path d="M20 5V19" stroke="#141B34" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+
+
+
+                <svg id="repeatBtn" class="repeat" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24"
+                    height="24" color="#ffffff" fill="currentColor"  style="display: none;">
+                    <path
+                        d="M16.3884 3L17.3913 3.97574C17.8393 4.41165 18.0633 4.62961 17.9844 4.81481C17.9056 5 17.5888 5 16.9552 5H9.19422C5.22096 5 2 8.13401 2 12C2 13.4872 2.47668 14.8662 3.2895 16"
+                        stroke="#141B34" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <path
+                        d="M7.61156 21L6.60875 20.0243C6.16074 19.5883 5.93673 19.3704 6.01557 19.1852C6.09441 19 6.4112 19 7.04478 19H14.8058C18.779 19 22 15.866 22 12C22 10.5128 21.5233 9.13383 20.7105 8"
+                        stroke="#141B34" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M13 15L13 9.31633C13 9.05613 12.7178 8.90761 12.52 9.06373L11 10.2636" stroke="#141B34"
+                        stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <svg id="repeatBtnoff" class="repeat" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24"
+                    height="24" color="#000000" fill="none" >
+                    <path
+                        d="M16.3884 3L17.3913 3.97574C17.8393 4.41165 18.0633 4.62961 17.9844 4.81481C17.9056 5 17.5888 5 16.9552 5H9.19422C5.22096 5 2 8.13401 2 12C2 13.4872 2.47668 14.8662 3.2895 16"
+                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path
+                        d="M7.61156 21L6.60875 20.0243C6.16074 19.5883 5.93673 19.3704 6.01557 19.1852C6.09441 19 6.4112 19 7.04478 19H14.8058C18.779 19 22 15.866 22 12C22 10.5128 21.5233 9.13383 20.7105 8"
+                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+
+            </div>
+            <div class="progress-container">
+                <span class="time" id="currentTime">0:00</span>
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress" id="progress"></div>
+                    <div class="progress-thumb" id="progressThumb"></div>
+                    <div class="seek-tooltip" id="seekTooltip">0:00</div>
+                </div>
+                <span class="time" id="duration">0:00</span>
+            </div>
+        </div>
+
+        <div class="songtime">
+            <button class="player-icon-btn" id="lyricsToggleBtn" onclick="toggleLyrics()" title="Lyrics (L)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 6h16M4 10h12M4 14h16M4 18h8"/>
+                </svg>
+            </button>
+            <button class="player-icon-btn" id="queueToggleBtn" onclick="toggleQueue()" title="Queue (Q)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+                </svg>
+            </button>
+            <button class="player-icon-btn" id="eqToggleBtn" onclick="toggleEQ()" title="Equalizer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+                    <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+                    <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+                </svg>
+            </button>
+            <button class="player-icon-btn" id="miniPlayerToggle" onclick="toggleMiniPlayer()" title="Mini Player">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="7" width="20" height="10" rx="2"/><line x1="10" y1="12" x2="14" y2="12"/>
+                </svg>
+            </button>
+            <div class="volume-control">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
+                    <path d="M14 14.8135V9.18646C14 6.04126 14 4.46866 13.0747 4.0773C12.1494 3.68593 11.0603 4.79793 8.88232 7.02192C7.75439 8.17365 7.11085 8.42869 5.50604 8.42869C4.10257 8.42869 3.40084 8.42869 2.89675 8.77262C1.85035 9.48655 2.00852 10.882 2.00852 12C2.00852 13.118 1.85035 14.5134 2.89675 15.2274C3.40084 15.5713 4.10257 15.5713 5.50604 15.5713C7.11085 15.5713 7.75439 15.8264 8.88232 16.9781C11.0603 19.2021 12.1494 20.3141 13.0747 19.9227C14 19.5313 14 17.9587 14 14.8135Z"
+                        stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M17 9C17.6254 9.81968 18 10.8634 18 12C18 13.1366 17.6254 14.1803 17 15" stroke="#ffffff"
+                        stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M20 7C21.2508 8.36613 22 10.1057 22 12C22 13.8943 21.2508 15.6339 20 17" stroke="#ffffff"
+                        stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div class="volume-bar" onclick="changeVolume(event)">
+                    <div class="volume-progress" id="volumeProgress"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="visualizerCanvas"></canvas>
+
+    <audio id="audioPlayer" preload="metadata"></audio>
+    <audio id="audioPlayerB" preload="metadata"></audio>
+
+    <!-- Queue Panel -->
+    <div class="queue-panel" id="queuePanel">
+        <div class="queue-header">
+            <h3>Queue</h3>
+            <button class="queue-close" onclick="toggleQueue()">&times;</button>
+        </div>
+        <div class="queue-section">
+            <h4>Now Playing</h4>
+            <div id="queueNowPlaying"></div>
+        </div>
+        <div class="queue-section">
+            <h4>Next Up</h4>
+            <div id="queueNextUp"></div>
+        </div>
+    </div>
+
+    <!-- Lyrics Panel -->
+    <div class="lyrics-panel" id="lyricsPanel">
+        <div class="lyrics-header">
+            <h3>Lyrics</h3>
+            <button class="lyrics-close" onclick="toggleLyrics()">&times;</button>
+        </div>
+        <div class="lyrics-content" id="lyricsContent">
+            <p>No lyrics available for this song.</p>
+        </div>
+    </div>
+
+    <!-- EQ Panel -->
+    <div class="eq-panel" id="eqPanel">
+        <div class="eq-header">
+            <h3>Equalizer</h3>
+            <button class="eq-close" onclick="toggleEQ()">&times;</button>
+        </div>
+        <div class="eq-presets">
+            <select id="eqPresetSelect" onchange="applyEQPreset(this.value)">
+                <option value="flat">Flat</option>
+                <option value="bass">Bass Boost</option>
+                <option value="treble">Treble Boost</option>
+                <option value="vocal">Vocal</option>
+                <option value="rock">Rock</option>
+            </select>
+        </div>
+        <div class="eq-sliders">
+            <div class="eq-band"><label>60</label><input type="range" min="-12" max="12" value="0" orient="vertical" class="eq-slider" data-band="0" oninput="setEQBand(0,this.value)"><span>0</span></div>
+            <div class="eq-band"><label>230</label><input type="range" min="-12" max="12" value="0" orient="vertical" class="eq-slider" data-band="1" oninput="setEQBand(1,this.value)"><span>0</span></div>
+            <div class="eq-band"><label>910</label><input type="range" min="-12" max="12" value="0" orient="vertical" class="eq-slider" data-band="2" oninput="setEQBand(2,this.value)"><span>0</span></div>
+            <div class="eq-band"><label>4k</label><input type="range" min="-12" max="12" value="0" orient="vertical" class="eq-slider" data-band="3" oninput="setEQBand(3,this.value)"><span>0</span></div>
+            <div class="eq-band"><label>14k</label><input type="range" min="-12" max="12" value="0" orient="vertical" class="eq-slider" data-band="4" oninput="setEQBand(4,this.value)"><span>0</span></div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcutsModal" class="modal">
+        <div class="modal-content" style="max-width:500px;">
+            <button class="close-modal" onclick="closeModal('shortcutsModal')">&times;</button>
+            <h2>Keyboard Shortcuts</h2>
+            <div class="shortcuts-grid">
+                <div><kbd>Space</kbd><span>Play / Pause</span></div>
+                <div><kbd>Ctrl</kbd>+<kbd>&rarr;</kbd><span>Next Song</span></div>
+                <div><kbd>Ctrl</kbd>+<kbd>&larr;</kbd><span>Previous Song</span></div>
+                <div><kbd>Ctrl</kbd>+<kbd>M</kbd><span>Mute / Unmute</span></div>
+                <div><kbd>Q</kbd><span>Toggle Queue</span></div>
+                <div><kbd>L</kbd><span>Toggle Lyrics</span></div>
+                <div><kbd>Ctrl</kbd>+<kbd>L</kbd><span>Like Song</span></div>
+                <div><kbd>S</kbd><span>Toggle Shuffle</span></div>
+                <div><kbd>R</kbd><span>Toggle Repeat</span></div>
+                <div><kbd>?</kbd><span>Show Shortcuts</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="contextMenu" style="display:none;">
+        <div class="context-item" onclick="contextPlayNext()">&#9654; Play Next</div>
+        <div class="context-item" onclick="contextAddToQueue()">+ Add to Queue</div>
+        <div class="context-divider"></div>
+        <div class="context-item" onclick="contextToggleLike()">&#9829; Like</div>
+        <div class="context-divider"></div>
+        <div class="context-item" onclick="contextShare()">&#8599; Share</div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/script.js"></script>
+</body>
+
+</html>

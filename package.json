@@ -1,0 +1,9 @@
+{
+  "name": "spotify-clone",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@netlify/blobs": "^10.7.0",
+    "@netlify/functions": "^5.1.2"
+  }
+}
