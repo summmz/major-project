@@ -38,6 +38,10 @@ let crossfadeTimer = null;
 let isCrossfading = false;
 let activePlayer = 'A';
 let contextMenuSong = null;
+let sleepTimer = null;
+let sleepTimerRemaining = 0;
+let sleepTimerInterval = null;
+let playbackRate = 1.0;
 
 function debouncedSearch(value) {
     clearTimeout(searchDebounceTimer);
@@ -416,6 +420,54 @@ const defaultPlaylists = {
 
 };
 
+// === PERSISTENT PLAYBACK STATE ===
+function savePlaybackState() {
+    try {
+        const state = {
+            currentSong,
+            currentPlaylist,
+            currentIndex,
+            currentTime: audioPlayer.currentTime,
+            volume: audioPlayer.volume,
+            isShuffled,
+            isRepeated,
+            playbackRate
+        };
+        localStorage.setItem('playbackState', JSON.stringify(state));
+    } catch(e) {}
+}
+function restorePlaybackState() {
+    try {
+        const stored = localStorage.getItem('playbackState');
+        if (!stored) return;
+        const state = JSON.parse(stored);
+        if (state.currentSong && state.currentPlaylist) {
+            currentSong = state.currentSong;
+            currentPlaylist = state.currentPlaylist;
+            currentIndex = state.currentIndex || 0;
+            isShuffled = state.isShuffled || false;
+            isRepeated = state.isRepeated || false;
+            playbackRate = state.playbackRate || 1.0;
+
+            document.getElementById('currentSongTitle').textContent = currentSong.title;
+            document.getElementById('currentSongArtist').textContent = currentSong.artist;
+            document.getElementById('currentSongImage').src = currentSong.image;
+
+            audioPlayer.src = currentSong.url;
+            audioPlayer.currentTime = state.currentTime || 0;
+            audioPlayer.volume = state.volume ?? 0.7;
+            audioPlayer.playbackRate = playbackRate;
+            setVolumeUI(audioPlayer.volume);
+
+            document.getElementById('shuffleBtn').classList.toggle('active', isShuffled);
+            updateRepeatButton();
+            updateLikeUI();
+            updateSpeedDisplay();
+            // Don't auto-play — user must press play
+        }
+    } catch(e) { console.error('Restore state failed:', e); }
+}
+
 // Initialize the app
 function init() {
     updateTimeGreeting();
@@ -425,6 +477,7 @@ function init() {
     loadLikedSongs();
     initDraggableProgress();
     setupCrossfadeListener();
+    restorePlaybackState();
 
     // Set up Netlify Identity event handlers
     netlifyIdentity.on('init', async (user) => {
@@ -521,67 +574,135 @@ function updateTimeGreeting() {
 }
 
 // Volume control functions
+let isDraggingVolume = false;
+
 function initializeVolume() {
     audioPlayer.volume = 0.7;
-    document.getElementById('volumeProgress').style.width = '70%';
+    setVolumeUI(0.7);
+    initDraggableVolume();
+}
+
+function setVolumeUI(volume) {
+    const pct = (volume * 100) + '%';
+    document.getElementById('volumeProgress').style.width = pct;
+    const thumb = document.getElementById('volumeThumb');
+    if (thumb) thumb.style.left = pct;
+    const tooltip = document.getElementById('volumeTooltip');
+    if (tooltip) {
+        tooltip.textContent = Math.round(volume * 100);
+        tooltip.style.left = pct;
+    }
+    // Update volume icon state
+    const control = document.querySelector('.volume-control');
+    if (volume === 0) {
+        control.classList.add('muted');
+    } else {
+        control.classList.remove('muted');
+    }
 }
 
 function changeVolume(event) {
-    const volumeBar = event.currentTarget;
-    const clickX = event.offsetX;
-    const width = volumeBar.offsetWidth;
-    const volume = Math.max(0, Math.min(1, clickX / width));
+    const volumeBar = document.getElementById('volumeBar');
+    const rect = volumeBar.getBoundingClientRect();
+    const volume = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
 
     audioPlayer.volume = volume;
-    document.getElementById('volumeProgress').style.width = (volume * 100) + '%';
+    setVolumeUI(volume);
 
-    // Update mute state
     if (volume === 0) {
         isMuted = true;
-        document.querySelector('.volume-control').classList.add('muted');
     } else {
         isMuted = false;
-        document.querySelector('.volume-control').classList.remove('muted');
         previousVolume = volume;
     }
 }
 
 function toggleMute() {
     if (isMuted) {
-        // Unmute
         audioPlayer.volume = previousVolume;
-        document.getElementById('volumeProgress').style.width = (previousVolume * 100) + '%';
+        setVolumeUI(previousVolume);
         isMuted = false;
-        document.querySelector('.volume-control').classList.remove('muted');
     } else {
-        // Mute
         previousVolume = audioPlayer.volume;
         audioPlayer.volume = 0;
-        document.getElementById('volumeProgress').style.width = '0%';
+        setVolumeUI(0);
         isMuted = true;
-        document.querySelector('.volume-control').classList.add('muted');
     }
 }
 
-function showVolumePreview(event) {
-    const volumeBar = event.currentTarget;
-    const hoverX = event.offsetX;
-    const width = volumeBar.offsetWidth;
-    const volume = Math.max(0, Math.min(1, hoverX / width));
+function initDraggableVolume() {
+    const bar = document.getElementById('volumeBar');
+    const hoverEl = document.getElementById('volumeHover');
+    const tooltip = document.getElementById('volumeTooltip');
+    if (!bar) return;
 
-    const volumeHover = document.getElementById('volumeHover');
-    const volumeTooltip = document.getElementById('volumeTooltip');
-
-    if (volumeHover) volumeHover.style.width = (volume * 100) + '%';
-    if (volumeTooltip) {
-        volumeTooltip.textContent = Math.round(volume * 100);
-        volumeTooltip.style.left = Math.min(Math.max(hoverX, 20), width - 20) + 'px';
+    function updateVolumeDrag(clientX) {
+        const rect = bar.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        audioPlayer.volume = percent;
+        setVolumeUI(percent);
+        if (percent > 0) { isMuted = false; previousVolume = percent; } else { isMuted = true; }
+        return percent;
     }
-}
 
-function hideVolumePreview() {
-    const volumeHover = document.getElementById('volumeHover');
-    if (volumeHover) volumeHover.style.width = '0%';
+    // Mouse drag
+    bar.addEventListener('mousedown', (e) => {
+        isDraggingVolume = true;
+        bar.classList.add('dragging');
+        updateVolumeDrag(e.clientX);
+        const onMove = (ev) => updateVolumeDrag(ev.clientX);
+        const onUp = () => {
+            isDraggingVolume = false;
+            bar.classList.remove('dragging');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+
+    // Hover preview
+    bar.addEventListener('mousemove', (e) => {
+        if (isDraggingVolume) return;
+        const rect = bar.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        if (hoverEl) hoverEl.style.width = (percent * 100) + '%';
+        if (tooltip) {
+            tooltip.textContent = Math.round(percent * 100);
+            tooltip.style.left = (percent * 100) + '%';
+        }
+    });
+    bar.addEventListener('mouseleave', () => {
+        if (hoverEl) hoverEl.style.width = '0%';
+    });
+
+    // Touch drag
+    bar.addEventListener('touchstart', (e) => {
+        isDraggingVolume = true;
+        bar.classList.add('dragging');
+        updateVolumeDrag(e.touches[0].clientX);
+    }, { passive: true });
+    bar.addEventListener('touchmove', (e) => {
+        if (isDraggingVolume) updateVolumeDrag(e.touches[0].clientX);
+    }, { passive: true });
+    bar.addEventListener('touchend', () => {
+        isDraggingVolume = false;
+        bar.classList.remove('dragging');
+    });
+
+    // Scroll wheel on volume bar
+    bar.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const step = e.deltaY > 0 ? -0.05 : 0.05;
+        const newVol = Math.max(0, Math.min(1, audioPlayer.volume + step));
+        audioPlayer.volume = newVol;
+        setVolumeUI(newVol);
+        if (newVol > 0) { isMuted = false; previousVolume = newVol; } else { isMuted = true; }
+    }, { passive: false });
+
+    // Click on volume icon to mute/unmute
+    const icon = bar.parentElement.querySelector('svg');
+    if (icon) icon.addEventListener('click', toggleMute);
 }
 
 // Authentication functions (via Netlify Identity Widget)
@@ -630,18 +751,41 @@ function showPlaylistPage(playlistId) {
 function setActivePage(pageId) {
     const pages = document.querySelectorAll('.content-page');
     const target = document.getElementById(pageId);
-    pages.forEach(page => {
-        if (page !== target) {
-            page.classList.remove('active');
-            page.style.display = 'none';
-        }
-    });
-    target.style.display = 'block';
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            target.classList.add('active');
+    const currentActive = document.querySelector('.content-page.active');
+
+    if (currentActive && currentActive !== target) {
+        currentActive.classList.add('fade-out');
+        setTimeout(() => {
+            pages.forEach(page => {
+                if (page !== target) {
+                    page.classList.remove('active', 'fade-out');
+                    page.style.display = 'none';
+                }
+            });
+            target.style.display = 'block';
+            // Scroll to top of content
+            const rightPanel = document.querySelector('.right');
+            if (rightPanel) rightPanel.scrollTop = 0;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    target.classList.add('active');
+                });
+            });
+        }, 150);
+    } else {
+        pages.forEach(page => {
+            if (page !== target) {
+                page.classList.remove('active');
+                page.style.display = 'none';
+            }
         });
-    });
+        target.style.display = 'block';
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                target.classList.add('active');
+            });
+        });
+    }
 }
 
 function setActiveNavItem(navId) {
@@ -915,6 +1059,10 @@ function loadPlaylistContent(playlistId) {
     const playlistTitle = document.getElementById('playlistTitle');
     const playlistContent = document.getElementById('playlistContent');
 
+    // Show skeletons while loading
+    showSkeletons('playlistContent', 4);
+    setTimeout(() => hideSkeletons('playlistContent'), 200);
+
     if (playlist) {
         if (playlist.name) {
             // User playlist
@@ -981,29 +1129,72 @@ function loadPlaylistContent(playlistId) {
                 Jazzessentials: "Jazz Essentials",
                 indiefavs: "Indie Favorites"
             };
-            playlistTitle.textContent = playlistNames[playlistId] || "Playlist";
+            const playlistDescriptions = {
+                popular: "The most popular songs right now",
+                Punjabi: "Catch the hottest Punjabi tracks",
+                SabrinaSessions: "Smooth and catchy tunes from Sabrina Carpenter",
+                workout: "High-energy tracks to power your workout",
+                SereneRoads: "Calm, soothing tracks for a relaxing drive",
+                MidnightHeat: "Sensual, bold tracks to set the mood",
+                SilkSheetsRedLights: "Seduction in every beat",
+                BeachVibes: "Chill, sunny tracks for a carefree seaside mood",
+                LeatherLace: "Soft temptation, hard edge",
+                SpellboundGrooves: "Hypnotic rhythms and seductive melodies",
+                Songsinshower: "Melancholic tunes that echo in the steam",
+                Cherrystainedlips: "Sweet, messy, addictive",
+                Rockclassics: "The greatest rock songs of all time",
+                Wetwindows: "Smooth beats that mimic falling rain",
+                ignitethebeat: "Tracks that set your soul on fire",
+                chillvibes: "Relax and unwind with these mellow tracks",
+                Jazzessentials: "Timeless jazz standards and smooth melodies",
+                indiefavs: "Discover indie gems and emerging artists",
+                rock: "Rock legends and anthems",
+                jazz: "Classic jazz essentials",
+                indie: "Independent spirit, unique sound"
+            };
+            const pName = playlistNames[playlistId] || "Playlist";
+            const pDesc = playlistDescriptions[playlistId] || "";
+            playlistTitle.textContent = pName;
+
+            const totalDur = playlist.reduce((sum, s) => sum + (s.duration || 0), 0);
+            const totalMin = Math.floor(totalDur / 60);
+            const coverImg = playlist[0] ? playlist[0].image : 'img/home.svg';
 
             let contentHTML = `
-                <div class="playlist-header" style="margin-bottom: 30px;">
-                    
-                    <p style="color: #a7a7a7;">${playlist.length} songs</p>
-                    <button onclick="playPlaylist('${playlistId}')" style="background-color: #1db954; border: none; padding: 6px 12px; border-radius: 10px; color: black; font-weight: bold; margin-top: 10px; cursor: pointer;">Play All</button>
+                <div class="playlist-hero">
+                    <img class="playlist-hero-img" src="${coverImg}" alt="${escapeHTML(pName)}" onerror="this.src='img/home.svg'">
+                    <div class="playlist-hero-info">
+                        <span class="playlist-hero-label">PLAYLIST</span>
+                        <h1 class="playlist-hero-title">${escapeHTML(pName)}</h1>
+                        <p class="playlist-hero-desc">${escapeHTML(pDesc)}</p>
+                        <p class="playlist-hero-meta">${playlist.length} songs &bull; ${totalMin} min</p>
+                    </div>
                 </div>
-                <div class="cardContainer">
+                <div class="playlist-actions">
+                    <button class="playlist-play-btn" onclick="playPlaylist('${playlistId}')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="black"><polygon points="5,3 19,12 5,21"/></svg>
+                        Play
+                    </button>
+                    <button class="playlist-shuffle-btn" onclick="playPlaylistShuffled('${playlistId}')">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 3.5A.5.5 0 0 1 .5 3H1c2.202 0 3.827 1.24 4.874 2.418.49.552.865 1.102 1.126 1.532.26-.43.636-.98 1.126-1.532C9.173 4.24 10.798 3 13 3v1c-1.798 0-3.173 1.01-4.126 2.082A9.624 9.624 0 0 0 7.556 8a9.624 9.624 0 0 0 1.317 1.918C9.828 10.99 11.204 12 13 12v1c-2.202 0-3.827-1.24-4.874-2.418A10.595 10.595 0 0 1 7 9.05c-.26.43-.636.98-1.126 1.532C4.827 11.76 3.202 13 1 13H.5a.5.5 0 0 1 0-1H1c1.798 0 3.173-1.01 4.126-2.082A9.624 9.624 0 0 0 6.444 8a9.624 9.624 0 0 0-1.317-1.918C4.172 5.01 2.796 4 1 4H.5a.5.5 0 0 1-.5-.5z"/><path d="M13 5.466V1.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192zm0 9v-3.932a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192z"/></svg>
+                        Shuffle
+                    </button>
+                </div>
+                <div class="playlist-tracklist">
             `;
 
             playlist.forEach((song, index) => {
+                const mins = Math.floor((song.duration || 0) / 60);
+                const secs = ((song.duration || 0) % 60).toString().padStart(2, '0');
                 contentHTML += `
-                    <div class="card" onclick="playSong(${index}, '${playlistId}')" oncontextmenu="showContextMenu(event, defaultPlaylists['${playlistId}'][${index}])" data-song-url="${encodeURI(song.url)}">
-                        <div class="play">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-                                <circle cx="24" cy="24" r="24" fill="#1DB954"/>
-                                <polygon points="18,14 34,24 18,34" fill="black"/>
-                            </svg>
+                    <div class="track-row" onclick="playSong(${index}, '${playlistId}')" oncontextmenu="showContextMenu(event, defaultPlaylists['${playlistId}'][${index}])" data-song-url="${encodeURI(song.url)}">
+                        <span class="track-num">${index + 1}</span>
+                        <img class="track-img" src="${song.image}" alt="${escapeHTML(song.title)}" onerror="this.src='img/home.svg'">
+                        <div class="track-info">
+                            <span class="track-title">${escapeHTML(song.title)}</span>
+                            <span class="track-artist">${escapeHTML(song.artist)}</span>
                         </div>
-                        <img src="${song.image}" alt="${escapeHTML(song.title)}" onerror="this.src='img/home.svg'">
-                        <h2>${escapeHTML(song.title)}</h2>
-                        <p>${escapeHTML(song.artist)}</p>
+                        <span class="track-duration">${mins}:${secs}</span>
                     </div>
                 `;
             });
@@ -1047,6 +1238,7 @@ function playSong(index, playlistId) {
         document.getElementById('currentSongImage').src = currentSong.image;
 
         audioPlayer.src = currentSong.url;
+        audioPlayer.playbackRate = playbackRate;
         audioPlayer.play().catch(error => {
             console.error('Error playing song:', error);
             showToast('Error playing song. Please check the audio file or try again.', 'error');
@@ -1059,6 +1251,7 @@ function playSong(index, playlistId) {
         initAudioContext();
         startVisualizer();
         renderQueue();
+        updateMediaSession();
     }
 }
 
@@ -1232,10 +1425,17 @@ function performSearch(query) {
         });
     });
 
-    const filteredSongs = allSongs.filter(song =>
-        song.title.toLowerCase().includes(query.toLowerCase()) ||
-        song.artist.toLowerCase().includes(query.toLowerCase())
-    );
+    const q = query.toLowerCase();
+    const filteredSongs = allSongs.filter(song => {
+        const title = song.title.toLowerCase();
+        const artist = song.artist.toLowerCase();
+        // Exact substring match
+        if (title.includes(q) || artist.includes(q)) return true;
+        // Fuzzy: check if all query words appear in title+artist
+        const words = q.split(/\s+/);
+        const combined = title + ' ' + artist;
+        return words.every(w => combined.includes(w));
+    });
 
     if (filteredSongs.length > 0) {
         lastSearchResults = filteredSongs;
@@ -1303,6 +1503,10 @@ audioPlayer.addEventListener('loadedmetadata', () => {
     durationSpan.textContent = formatTime(audioPlayer.duration);
 });
 
+// Auto-save playback state periodically
+setInterval(savePlaybackState, 5000);
+window.addEventListener('beforeunload', savePlaybackState);
+
 audioPlayer.addEventListener('play', () => {
     isPlaying = true;
     updatePlayButton();
@@ -1341,6 +1545,11 @@ document.addEventListener('keydown', (e) => {
         toggleRepeat();
     } else if (e.key === '?') {
         document.getElementById('shortcutsModal').classList.toggle('active');
+    } else if (e.code === 'KeyT' && !e.ctrlKey) {
+        showSleepTimerMenu();
+    } else if (e.code === 'Period' && e.ctrlKey) {
+        e.preventDefault();
+        cyclePlaybackSpeed();
     }
 });
 
@@ -1898,23 +2107,120 @@ function updateNowPlayingIndicator() {
     document.querySelectorAll('.now-playing-bars').forEach(el => el.remove());
 
     if (!currentSong) return;
-    const cards = document.querySelectorAll(`.card[data-song-url="${CSS.escape(encodeURI(currentSong.url))}"]`);
-    cards.forEach(card => {
-        card.classList.add('now-playing');
-        const h2 = card.querySelector('h2');
-        if (h2 && !h2.querySelector('.now-playing-bars')) {
-            const bars = document.createElement('span');
-            bars.className = 'now-playing-bars' + (isPlaying ? '' : ' paused');
-            bars.innerHTML = '<span></span><span></span><span></span><span></span>';
-            h2.appendChild(bars);
-        }
-    });
+
+    function markNowPlaying(selector) {
+        document.querySelectorAll(selector).forEach(el => {
+            el.classList.add('now-playing');
+            if (el.classList.contains('card')) {
+                const h2 = el.querySelector('h2');
+                if (h2 && !h2.querySelector('.now-playing-bars')) {
+                    const bars = document.createElement('span');
+                    bars.className = 'now-playing-bars' + (isPlaying ? '' : ' paused');
+                    bars.innerHTML = '<span></span><span></span><span></span><span></span>';
+                    h2.appendChild(bars);
+                }
+            }
+        });
+    }
+
+    // Match by sourceId (YouTube/API songs)
+    if (currentSong.sourceId) {
+        const escapedId = CSS.escape(currentSong.sourceId);
+        markNowPlaying(`.card[data-song-id="${escapedId}"]`);
+        markNowPlaying(`.track-row[data-song-id="${escapedId}"]`);
+    }
+
+    // Match by url (local songs) — skip if url is empty
+    if (currentSong.url) {
+        const escapedUrl = CSS.escape(encodeURI(currentSong.url));
+        markNowPlaying(`.card[data-song-url="${escapedUrl}"]`);
+        markNowPlaying(`.track-row[data-song-url="${escapedUrl}"]`);
+    }
 }
 
 // === MINI PLAYER (Feature 15) ===
 function toggleMiniPlayer() {
     document.querySelector('.playbar').classList.toggle('mini');
     document.getElementById('miniPlayerToggle').classList.toggle('active');
+}
+
+// === PLAY SHUFFLED PLAYLIST ===
+function playPlaylistShuffled(playlistId) {
+    currentPlaylist = [...(defaultPlaylists[playlistId] || [])];
+    if (currentPlaylist.length === 0) return;
+    // Fisher-Yates shuffle
+    for (let i = currentPlaylist.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [currentPlaylist[i], currentPlaylist[j]] = [currentPlaylist[j], currentPlaylist[i]];
+    }
+    isShuffled = true;
+    document.getElementById('shuffleBtn').classList.add('active');
+    currentIndex = 0;
+    playSong(0);
+}
+
+// === SLEEP TIMER ===
+function setSleepTimer(minutes) {
+    clearSleepTimer();
+    if (minutes <= 0) return;
+    sleepTimerRemaining = minutes * 60;
+    showToast(`Sleep timer set for ${minutes} min`);
+    document.getElementById('sleepTimerBtn').classList.add('active');
+    sleepTimerInterval = setInterval(() => {
+        sleepTimerRemaining--;
+        if (sleepTimerRemaining <= 0) {
+            clearSleepTimer();
+            audioPlayer.pause();
+            isPlaying = false;
+            updatePlayButton();
+            stopVisualizer();
+            showToast('Sleep timer ended. Goodnight!', 'info');
+        }
+    }, 1000);
+}
+function clearSleepTimer() {
+    if (sleepTimerInterval) clearInterval(sleepTimerInterval);
+    sleepTimerInterval = null;
+    sleepTimerRemaining = 0;
+    const btn = document.getElementById('sleepTimerBtn');
+    if (btn) btn.classList.remove('active');
+}
+function showSleepTimerMenu() {
+    const panel = document.getElementById('sleepTimerPanel');
+    if (!panel) return;
+    panel.classList.toggle('open');
+    document.getElementById('sleepTimerBtn').classList.toggle('active', panel.classList.contains('open'));
+}
+
+// === PLAYBACK SPEED CONTROL ===
+function cyclePlaybackSpeed() {
+    const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    const currentIdx = speeds.indexOf(playbackRate);
+    playbackRate = speeds[(currentIdx + 1) % speeds.length];
+    audioPlayer.playbackRate = playbackRate;
+    updateSpeedDisplay();
+    showToast(`Playback speed: ${playbackRate}x`);
+}
+function updateSpeedDisplay() {
+    const btn = document.getElementById('speedBtn');
+    if (btn) {
+        btn.textContent = playbackRate + 'x';
+        btn.classList.toggle('active', playbackRate !== 1.0);
+    }
+}
+
+// === MEDIA SESSION API (OS integration) ===
+function updateMediaSession() {
+    if (!('mediaSession' in navigator) || !currentSong) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentSong.title,
+        artist: currentSong.artist,
+        artwork: [{ src: currentSong.image, sizes: '512x512', type: 'image/jpeg' }]
+    });
+    navigator.mediaSession.setActionHandler('play', () => { audioPlayer.play(); isPlaying = true; updatePlayButton(); });
+    navigator.mediaSession.setActionHandler('pause', () => { audioPlayer.pause(); isPlaying = false; updatePlayButton(); });
+    navigator.mediaSession.setActionHandler('previoustrack', previousSong);
+    navigator.mediaSession.setActionHandler('nexttrack', nextSong);
 }
 
 // === SOCIAL SHARING (Feature 16) ===
@@ -1934,252 +2240,4 @@ function shareSong() {
 init();
 
 
-// SoundCloud Integration for your Spotify Clone
-// Add this to your existing script.js
-
-// SoundCloud Widget API
-const SC_WIDGET_API = 'https://w.soundcloud.com/player/api.js';
-
-// Load SoundCloud Widget API
-function loadSoundCloudAPI() {
-    return new Promise((resolve) => {
-        if (window.SC) {
-            resolve();
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.src = SC_WIDGET_API;
-        script.onload = () => resolve();
-        document.head.appendChild(script);
-    });
-}
-
-// SoundCloud playlist data structure
-const soundcloudPlaylists = {
-    electronic: [
-        {
-            title: "Chill Electronic",
-            artist: "Various Artists",
-            soundcloudUrl: "https://soundcloud.com/example/chill-electronic",
-            image: "img/electronic-cover.jpg",
-            duration: 240,
-            isSoundCloud: true
-        }
-    ],
-    indie: [
-        {
-            title: "Indie Discoveries",
-            artist: "Indie Artist",
-            soundcloudUrl: "https://soundcloud.com/example/indie-track",
-            image: "img/indie-cover.jpg",
-            duration: 195,
-            isSoundCloud: true
-        }
-    ]
-};
-
-// Enhanced playSong function with SoundCloud support
-function playSongWithSoundCloud(index, playlistId) {
-    if (playlistId && defaultPlaylists[playlistId]) {
-        currentPlaylist = defaultPlaylists[playlistId];
-    } else if (playlistId && soundcloudPlaylists[playlistId]) {
-        currentPlaylist = soundcloudPlaylists[playlistId];
-    }
-
-    if (currentPlaylist.length === 0) return;
-
-    currentIndex = index;
-    currentSong = currentPlaylist[currentIndex];
-
-    if (currentSong) {
-        document.getElementById('currentSongTitle').textContent = currentSong.title;
-        document.getElementById('currentSongArtist').textContent = currentSong.artist;
-        document.getElementById('currentSongImage').src = currentSong.image;
-
-        if (currentSong.isSoundCloud) {
-            // Play SoundCloud track
-            playSoundCloudTrack(currentSong.soundcloudUrl);
-        } else {
-            // Play regular audio file
-            audioPlayer.src = currentSong.url;
-            audioPlayer.play();
-        }
-
-        isPlaying = true;
-        updatePlayButton();
-    }
-}
-
-// SoundCloud player functions
-async function playSoundCloudTrack(soundcloudUrl) {
-    await loadSoundCloudAPI();
-
-    // Hide regular audio player
-    audioPlayer.pause();
-
-    // Create SoundCloud widget if it doesn't exist
-    if (!document.getElementById('soundcloud-player')) {
-        createSoundCloudWidget();
-    }
-
-    const widget = SC.Widget('soundcloud-player');
-
-    // Load and play the track
-    widget.load(soundcloudUrl, {
-        auto_play: true,
-        hide_related: true,
-        show_comments: false,
-        show_user: true,
-        show_reposts: false,
-        visual: false
-    });
-
-    // Listen for widget events
-    widget.bind(SC.Widget.Events.READY, function () {
-        widget.play();
-    });
-
-    widget.bind(SC.Widget.Events.FINISH, function () {
-        nextSong();
-    });
-
-    widget.bind(SC.Widget.Events.PLAY, function () {
-        isPlaying = true;
-        updatePlayButton();
-    });
-
-    widget.bind(SC.Widget.Events.PAUSE, function () {
-        isPlaying = false;
-        updatePlayButton();
-    });
-}
-
-// Create hidden SoundCloud widget
-function createSoundCloudWidget() {
-    const widgetContainer = document.createElement('div');
-    widgetContainer.innerHTML = `
-        <iframe 
-            id="soundcloud-player"
-            width="100%" 
-            height="166" 
-            scrolling="no" 
-            frameborder="no" 
-            allow="autoplay"
-            src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/34019569&amp;hide_related=false&amp;show_comments=true&amp;show_user=true&amp;show_reposts=false&amp;show_teaser=true&amp;visual=true"
-            style="display: none;">
-        </iframe>
-    `;
-    document.body.appendChild(widgetContainer);
-}
-
-// Enhanced toggle play for SoundCloud
-function togglePlayWithSoundCloud() {
-    if (currentSong && currentSong.isSoundCloud) {
-        const widget = SC.Widget('soundcloud-player');
-        if (isPlaying) {
-            widget.pause();
-        } else {
-            widget.play();
-        }
-    } else {
-        // Regular audio player toggle
-        togglePlay();
-    }
-}
-
-// SoundCloud search function
-async function searchSoundCloud(query) {
-    const CLIENT_ID = 'your_soundcloud_client_id'; // Get from SoundCloud
-    const searchUrl = `https://api.soundcloud.com/tracks?q=${encodeURIComponent(query)}&client_id=${CLIENT_ID}&limit=20`;
-
-    try {
-        const response = await fetch(searchUrl);
-        const tracks = await response.json();
-
-        return tracks.map(track => ({
-            title: track.title,
-            artist: track.user.username,
-            soundcloudUrl: track.permalink_url,
-            image: track.artwork_url || track.user.avatar_url,
-            duration: Math.floor(track.duration / 1000),
-            isSoundCloud: true
-        }));
-    } catch (error) {
-        console.error('SoundCloud search error:', error);
-        return [];
-    }
-}
-
-// Add SoundCloud results to search
-async function performSearchWithSoundCloud(query) {
-    const searchResults = document.getElementById('searchResults');
-
-    if (!query.trim()) {
-        // Show regular browse categories
-        performSearch(query);
-        return;
-    }
-
-    // Search both local and SoundCloud
-    const localResults = searchLocalTracks(query);
-    const soundcloudResults = await searchSoundCloud(query);
-
-    const allResults = [...localResults, ...soundcloudResults];
-
-    if (allResults.length > 0) {
-        let resultsHTML = `<h2>Search results for "${escapeHTML(query)}"</h2><div class="cardContainer">`;
-
-        allResults.forEach((song, index) => {
-            const sourceLabel = song.isSoundCloud ? 'SoundCloud' : 'Local';
-            resultsHTML += `
-                <div class="card" onclick="playSearchResultMixed(${index}, '${JSON.stringify(allResults).replace(/"/g, '&quot;')}')">
-                    <div class="play">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-                            <circle cx="24" cy="24" r="24" fill="#1DB954"/>
-                            <polygon points="18,14 34,24 18,34" fill="black"/>
-                        </svg>
-                    </div>
-                    <img src="${song.image}" alt="${song.title}">
-                    <h2>${song.title}</h2>
-                    <p>${song.artist}</p>
-                    <small style="color: #ff5500;">${sourceLabel}</small>
-                </div>
-            `;
-        });
-        resultsHTML += '</div>';
-        searchResults.innerHTML = resultsHTML;
-    } else {
-        searchResults.innerHTML = `<h2>No results found for "${query}"</h2>`;
-    }
-}
-
-function searchLocalTracks(query) {
-    const allSongs = [];
-    Object.values(defaultPlaylists).forEach(playlist => {
-        allSongs.push(...playlist);
-    });
-
-    return allSongs.filter(song =>
-        song.title.toLowerCase().includes(query.toLowerCase()) ||
-        song.artist.toLowerCase().includes(query.toLowerCase())
-    );
-}
-
-function playSearchResultMixed(index, songsJson) {
-    try {
-        const songs = JSON.parse(songsJson.replace(/&quot;/g, '"'));
-        currentPlaylist = songs;
-        currentIndex = index;
-
-        const song = songs[index];
-        if (song.isSoundCloud) {
-            playSongWithSoundCloud(index);
-        } else {
-            playSong(index);
-        }
-    } catch (e) {
-        console.error('Error playing mixed search result:', e);
-    }
-}
 
