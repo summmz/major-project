@@ -58,43 +58,54 @@ async function _loadAndPlay(song) {
 
     const isYT = song.source === 'youtube' && song.sourceId;
 
-    // For YouTube: use the /stream/ redirect endpoint.
-    // The browser follows the 302 → fetches directly from YouTube CDN.
+    const tryPlay = (url) => new Promise((resolve) => {
+        let timer;
+        function cleanup() {
+            clearTimeout(timer);
+            audioPlayer.removeEventListener('canplay', onCanPlay);
+            audioPlayer.removeEventListener('error',   onError);
+        }
+        const onCanPlay = () => { cleanup(); resolve('ok'); };
+        const onError   = () => { cleanup(); resolve('error'); };
+
+        audioPlayer.src          = url;
+        audioPlayer.playbackRate = state.playbackRate;
+        audioPlayer.addEventListener('canplay', onCanPlay, { once: true });
+        audioPlayer.addEventListener('error',   onError,   { once: true });
+
+        // Safety timeout — attempt play anyway if canplay never fires
+        timer = setTimeout(() => { cleanup(); resolve('timeout'); }, 4000);
+    });
+
     const streamUrl = isYT
         ? state.API_BASE + '/songs/stream/' + song.sourceId
         : song.url;
 
-    audioPlayer.src          = streamUrl;
-    audioPlayer.playbackRate = state.playbackRate;
+    const result = await tryPlay(streamUrl);
 
-    // Force start from 0 before playing. YouTube CDN URLs sometimes encode a
-    // non-zero begin offset; waiting for loadedmetadata and resetting ensures
-    // the browser honours position 0 regardless of what the URL says.
-    await new Promise(resolve => {
-        if (audioPlayer.readyState >= 1) { audioPlayer.currentTime = 0; resolve(); return; }
-        const onMeta = () => { audioPlayer.currentTime = 0; audioPlayer.removeEventListener('loadedmetadata', onMeta); resolve(); };
-        audioPlayer.addEventListener('loadedmetadata', onMeta);
-        // Resolve anyway after 2 s so a stalled load doesn't block playback forever
-        setTimeout(() => { audioPlayer.removeEventListener('loadedmetadata', onMeta); resolve(); }, 2000);
-    });
+    if (result === 'error' && isYT) {
+        // Redirect failed — try piping through proxy
+        console.warn('Stream error, falling back to proxy');
+        const proxyUrl = state.API_BASE + '/songs/proxy/' + song.sourceId;
+        const r2 = await tryPlay(proxyUrl);
+        if (r2 === 'error') {
+            showToast('Could not play this song. Trying next...', 'error');
+            return;
+        }
+    } else if (result === 'error') {
+        showToast('Could not play this song. Trying next...', 'error');
+        return;
+    }
 
+    // Element is ready — play
     try {
         await audioPlayer.play();
-    } catch (err) {
-        // play() failed — most likely the redirect URL had a CORS issue or expired.
-        // Fall back to the proxy route which pipes bytes through our server.
-        if (isYT) {
-            console.warn('Redirect play failed, trying proxy:', err.message);
-            const proxyUrl = state.API_BASE + '/songs/proxy/' + song.sourceId;
-            audioPlayer.src = proxyUrl;
-            try {
-                await audioPlayer.play();
-                return;
-            } catch (e2) {
-                console.error('Proxy play also failed:', e2.message);
-            }
+    } catch (e) {
+        // AbortError can still happen if the user clicks something mid-load;
+        // ignore it silently as it means another play() superseded this one
+        if (e.name !== 'AbortError') {
+            console.error('play() failed:', e.message);
         }
-        showToast('Could not play this song. Trying next...', 'error');
     }
 }
 
@@ -166,7 +177,7 @@ async function _doNextSong() {
         document.getElementById('currentSongTitle').textContent = state.currentSong.title;
         document.getElementById('currentSongArtist').textContent = state.currentSong.artist;
         document.getElementById('currentSongImage').src = state.currentSong.image;
-        _loadAndPlay(state.currentSong);
+        await _loadAndPlay(state.currentSong);
         state.setIsPlaying(true);
         updatePlayButton();
         addToRecentlyPlayed(state.currentSong);
@@ -198,10 +209,14 @@ async function _doNextSong() {
     // Past the end of the playlist
     if (window.__fetchMoreSongs && window.__activePlaylistMeta) {
         // Extendable playlist — fetch and wait. No toast; just play next silently.
+        // Snapshot the length BEFORE fetching so we know exactly where new songs start.
+        const lengthBefore = state.currentPlaylist.length;
         const added = await window.__fetchMoreSongs();
         if (added > 0) {
-            state.setCurrentIndex(nextIndex);
-            playSong(state.currentIndex);
+            // Play the first newly appended song (right after where the old list ended)
+            const firstNewIndex = lengthBefore;
+            state.setCurrentIndex(firstNewIndex);
+            playSong(firstNewIndex);
         }
         // If added === 0, stop silently. Don't replay current song.
     } else {
@@ -729,7 +744,7 @@ export function setupCrossfadeListener() {
     audioPlayer.addEventListener('timeupdate', () => {
         if (!audioPlayer.duration || state.isRepeated || state.isCrossfading) return;
         const timeLeft = audioPlayer.duration - audioPlayer.currentTime;
-        if (timeLeft <= state.crossfadeDuration && timeLeft > 0) {
+        if (state.crossfadeDuration > 0 && timeLeft <= state.crossfadeDuration && timeLeft > 0) {
             crossfadeToNext();
         }
     });
@@ -965,9 +980,16 @@ export function setupAudioListeners() {
         if (state.isRepeated) {
             audioPlayer.currentTime = 0;
             audioPlayer.play();
-        } else if (!state.isCrossfading) {
-            nextSong();
+            return;
         }
+        if (state.isCrossfading) return; // crossfade will handle the transition
+
+        // If a transition is already in progress (e.g. crossfade triggered nextSong
+        // 3 s early and is awaiting canplay), do nothing — that call will play the
+        // next song once the buffer is ready.
+        if (_transitioning) return;
+
+        nextSong();
     });
 
     audioPlayer.addEventListener('loadedmetadata', () => {
@@ -983,6 +1005,9 @@ export function setupAudioListeners() {
     });
 
     audioPlayer.addEventListener('pause', () => {
+        // Ignore pause events that fire while we are loading the next song
+        // (changing audioPlayer.src always fires a pause event)
+        if (_transitioning) return;
         state.setIsPlaying(false);
         updatePlayButton();
     });

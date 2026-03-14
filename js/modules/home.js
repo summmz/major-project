@@ -497,11 +497,20 @@ window.__playlistPages = window.__playlistPages || {};
 
 // Fetch more songs and append to currentPlaylist.
 // Returns the number of songs actually appended (may be 0 if all dupes).
+// In-flight promise guard — prevents two simultaneous fetches racing each other.
+let __fetchInflight = null;
+
 window.__fetchMoreSongs = async function() {
+    if (__fetchInflight) return __fetchInflight;
+    __fetchInflight = __doFetchMore();
+    try     { return await __fetchInflight; }
+    finally { __fetchInflight = null; }
+};
+
+async function __doFetchMore() {
     const meta = window.__activePlaylistMeta;
     if (!meta) return 0;
 
-    // Advance the page counter so this fetch uses different seeds than the last
     const metaKey = meta.key ? `${meta.type}_${meta.key}` : meta.type;
     window.__playlistPages[metaKey] = (window.__playlistPages[metaKey] || 0) + 1;
     const page = window.__playlistPages[metaKey];
@@ -513,7 +522,16 @@ window.__fetchMoreSongs = async function() {
     else if (meta.type === 'newreleases') url = `${state.API_BASE}/recommendations/newreleases?page=${page}`;
     else if (meta.type === 'charts')      url = `${state.API_BASE}/recommendations/charts?page=${page}`;
     else if (meta.type === 'search') {
-        const seed = encodeURIComponent(meta.artist || meta.query || 'trending music');
+        // For search, rotate through different related queries per page so we
+        // don't keep fetching the same 20 songs and hitting the dedup wall.
+        const seeds = [
+            meta.artist,
+            meta.query,
+            meta.artist ? meta.artist + ' songs' : null,
+            meta.artist ? meta.artist + ' new songs' : null,
+            meta.query  ? meta.query  + ' similar' : null,
+        ].filter(Boolean);
+        const seed = encodeURIComponent(seeds[(page - 1) % seeds.length] || meta.query || 'trending music');
         url = `${state.API_BASE}/search?q=${seed}&type=songs&limit=20`;
     }
     else return 0;
@@ -538,24 +556,22 @@ window.__fetchMoreSongs = async function() {
         });
 
         if (!fresh.length) {
-            // All returned songs were duplicates — try the next page recursively
-            // but only one extra level deep to avoid infinite loops
-            if (page < 10) {
+            // All dupes — try the next page, max 5 retries before giving up
+            if (page < 5) {
                 window.__playlistPages[metaKey] = page + 1;
-                return window.__fetchMoreSongs();
+                return __doFetchMore();
             }
             return 0;
         }
 
         const extended = [...state.currentPlaylist, ...fresh];
         state.setCurrentPlaylist(extended);
-        console.log(`[playlist] +${fresh.length} songs via page ${page} (total: ${extended.length})`);
         return fresh.length;
     } catch (e) {
         console.warn('[playlist] fetchMoreSongs failed:', e.message);
         return 0;
     }
-};
+}
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
