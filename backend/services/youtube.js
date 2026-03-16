@@ -25,9 +25,9 @@ const YT_API     = 'https://www.googleapis.com/youtube/v3';
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 const CACHE        = new Map();
-const STREAM_TTL   = 5  * 60 * 1000;
-const SEARCH_TTL   = 10 * 60 * 1000;
-const TRENDING_TTL = 15 * 60 * 1000;
+const STREAM_TTL   = 10 * 60 * 1000;   // 10 min
+const SEARCH_TTL   = 60 * 60 * 1000;   // 1 hour — saves quota
+const TRENDING_TTL = 60 * 60 * 1000;   // 1 hour — saves quota
 
 function getCached(key, ttl) {
     const entry = CACHE.get(key);
@@ -89,7 +89,7 @@ function getFingerprint(title, artist) {
 }
 
 // ─── YouTube Data API v3 search ───────────────────────────────────────────────
-async function apiSearch(query, maxResults = 20) {
+async function apiSearch(query, maxResults = 8) {
     if (!YT_API_KEY) {
         console.warn('YOUTUBE_API_KEY not set — search unavailable');
         return [];
@@ -193,7 +193,8 @@ async function searchAll(query, limit = 20) {
 
 // ─── Recommendations helper ───────────────────────────────────────────────────
 async function apiSearchMultiple(queries, total = 20) {
-    const settled = await Promise.allSettled(queries.map(q => apiSearch(q, 10)));
+    // Only use first query to conserve YouTube API quota (100 units per search)
+    const settled = await Promise.allSettled(queries.slice(0, 1).map(q => apiSearch(q, total)));
     const seen    = new Set();
     const results = [];
 

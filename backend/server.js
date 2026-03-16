@@ -50,14 +50,5 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 
-    // Pre-warm caches so the first home-page load is fast
-    const youtube = require('./services/youtube');
-    Promise.allSettled([
-        youtube.getTrendingRecommendations(20),
-        youtube.getNewReleases(20),
-        youtube.getChartSongs(20),
-        youtube.getGenreSongs('pop',       12),
-        youtube.getGenreSongs('bollywood', 12),
-        youtube.getGenreSongs('punjabi',   12),
-    ]).then(() => console.log('Home feed caches warmed'));
+    console.log('Server ready — home feed loads on first request');
 });
