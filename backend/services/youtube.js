@@ -447,7 +447,6 @@ async function _fetchStreamUrl(videoId, cacheKey) {
             '--no-check-certificates',
             '--no-warnings',
             '--no-playlist',
-            '-f', 'bestaudio/best',
         ];
         if (COOKIES_OPT.cookies) args.push('--cookies', COOKIES_OPT.cookies);
 
