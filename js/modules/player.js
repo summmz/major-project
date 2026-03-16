@@ -15,7 +15,6 @@ const durationSpan = document.getElementById('duration');
 export function playSong(index, playlistId) {
     if (playlistId && defaultPlaylists[playlistId]) {
         state.setCurrentPlaylist(defaultPlaylists[playlistId]);
-        // Static local playlist — disable infinite extension
         window.__activePlaylistMeta = null;
     }
 
@@ -48,86 +47,34 @@ export function playSong(index, playlistId) {
             .then(color => window.__modules.gradient.applyNowPlayingGradient(color));
     }
 
-    // Pre-warm the next song's stream URL in the background
     _prewarmNext(index);
 }
 
 // Load audio and play.
 // /api/songs/stream/:videoId proxies audio through our server — no CORS issues.
-// If a video is unavailable (404 / age-restricted / region-blocked) we
-// pre-check with a HEAD-style fetch so we can skip silently rather than
-// letting the <audio> element error out.
+// On 404/502 (unavailable video) the audio element fires an error event,
+// which is caught by setupAudioListeners and triggers nextSong().
 async function _loadAndPlay(song) {
     if (!song) return;
 
-    const isYT = song.source === 'youtube' && song.sourceId;
-
-    // For YouTube songs, verify the stream is reachable before handing the URL
-    // to the <audio> element. This catches 404s cleanly and lets us skip.
-    if (isYT) {
-        try {
-            const streamUrl = state.API_BASE + '/songs/stream/' + song.sourceId;
-            const check = await fetch(streamUrl, { method: 'GET', headers: { Range: 'bytes=0-0' } });
-            if (!check.ok && check.status !== 206) {
-                // Video unavailable — skip silently to next
-                console.warn('Skipping unavailable video:', song.sourceId, song.title, check.status);
-                nextSong();
-                return;
-            }
-        } catch (e) {
-            console.warn('Stream check failed, skipping:', song.title, e.message);
-            nextSong();
-            return;
-        }
-    }
-
-    const tryPlay = (url) => new Promise((resolve) => {
-        let timer;
-        function cleanup() {
-            clearTimeout(timer);
-            audioPlayer.removeEventListener('canplay', onCanPlay);
-            audioPlayer.removeEventListener('error',   onError);
-        }
-        const onCanPlay = () => { cleanup(); resolve('ok'); };
-        const onError   = () => { cleanup(); resolve('error'); };
-
-        audioPlayer.src          = url;
-        audioPlayer.playbackRate = state.playbackRate;
-        audioPlayer.addEventListener('canplay', onCanPlay, { once: true });
-        audioPlayer.addEventListener('error',   onError,   { once: true });
-
-        // Safety timeout — treat as error if canplay never fires within 10s
-        timer = setTimeout(() => { cleanup(); resolve('error'); }, 10000);
-    });
-
+    const isYT     = song.source === 'youtube' && song.sourceId;
     const streamUrl = isYT
         ? state.API_BASE + '/songs/stream/' + song.sourceId
         : song.url;
 
-    const result = await tryPlay(streamUrl);
+    audioPlayer.src          = streamUrl;
+    audioPlayer.playbackRate = state.playbackRate;
+    audioPlayer.load();
 
-    if (result === 'error') {
-        if (isYT) {
-            console.warn('Audio element error, skipping:', song.title);
-            nextSong();
-        } else {
-            showToast('Could not play this song. Trying next...', 'error');
-        }
-        return;
-    }
-
-    // Element is ready — play
     try {
         await audioPlayer.play();
     } catch (e) {
-        // AbortError fires when another play() supersedes this one — safe to ignore
         if (e.name !== 'AbortError') {
-            console.error('play() failed:', e.message);
+            console.warn('play() error:', e.name, e.message);
         }
     }
 }
 
-// Tell the server to pre-resolve and cache the stream URL for the next song
 function _prewarmNext(currentIndex) {
     const playlist = state.currentPlaylist;
     if (!playlist?.length) return;
@@ -805,7 +752,7 @@ function crossfadeToNext() {
     const cfUrl = nextSongData.source === 'youtube' && nextSongData.sourceId
         ? state.API_BASE + '/songs/stream/' + nextSongData.sourceId
         : nextSongData.url;
-    audioB.src = cfUrl; // /stream now proxies through server — no CORS issue
+    audioB.src = cfUrl; // crossfade uses redirect — proxy fallback not needed here
     audioB.volume = 0;
     audioB.play().catch(e => { console.error(e); state.setIsCrossfading(false); });
 
@@ -1008,6 +955,16 @@ export function setupAudioListeners() {
         if (_transitioning) return;
 
         nextSong();
+    });
+
+    // Auto-skip unavailable videos (404/502 from stream endpoint)
+    audioPlayer.addEventListener('error', () => {
+        if (!audioPlayer.src || audioPlayer.src === window.location.href) return;
+        const song = state.currentSong;
+        if (song?.source === 'youtube') {
+            console.warn('Audio error — skipping unavailable video:', song.title);
+            nextSong();
+        }
     });
 
     audioPlayer.addEventListener('loadedmetadata', () => {
