@@ -1,5 +1,15 @@
 require('dotenv').config();
 
+// Fix cookies.txt line endings — Windows saves CRLF which breaks yt-dlp on Linux
+const fs   = require('fs');
+const path = require('path');
+const cookiesPath = path.join(__dirname, 'cookies.txt');
+if (fs.existsSync(cookiesPath)) {
+    const fixed = fs.readFileSync(cookiesPath, 'utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    fs.writeFileSync(cookiesPath, fixed, 'utf8');
+    console.log('cookies.txt line endings fixed');
+}
+
 
 const express = require('express');
 const cors    = require('cors');

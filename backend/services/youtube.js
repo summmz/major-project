@@ -451,8 +451,11 @@ async function _fetchStreamUrl(videoId, cacheKey) {
         if (COOKIES_OPT.cookies) args.push('--cookies', COOKIES_OPT.cookies);
 
         const rawOutput = await new Promise((resolve, reject) => {
-            execFile(YTDLP_BIN, args, { timeout: 30000 }, (err, stdout, stderr) => {
-                if (err) return reject(new Error(stderr || err.message));
+            execFile(YTDLP_BIN, args, { timeout: 30000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+                if (err) {
+                    const msg = (stderr || err.message || '').trim();
+                    return reject(new Error(msg || 'yt-dlp command failed'));
+                }
                 resolve(stdout);
             });
         });
