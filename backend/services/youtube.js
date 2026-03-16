@@ -405,13 +405,19 @@ async function _fetchStreamUrl(videoId, cacheKey) {
         // --get-url is 3-5x faster than --dump-single-json because yt-dlp only
         // needs to resolve the format URL — it skips downloading full metadata.
         // We request the best audio-only format explicitly.
+        // Use cookies.txt if present — bypasses YouTube bot-detection on cloud IPs
+        const _path = require('path');
+        const _fs   = require('fs');
+        const cookiesFile = _path.join(__dirname, '..', 'cookies.txt');
+        const cookiesOpt  = _fs.existsSync(cookiesFile) ? { cookies: cookiesFile } : {};
+
         const rawOutput = await youtubedl(url, {
             getUrl: true,
             noCheckCertificates: true,
             noWarnings: true,
             format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best',
-            // Limit to audio so we don't accidentally get a video+audio mux
             noPlaylist: true,
+            ...cookiesOpt,
         });
 
         // yt-dlp --get-url can return multiple lines (one per format); take the first
