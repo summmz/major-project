@@ -6,13 +6,10 @@ const fs        = require('fs');
 // ─── Cookies for yt-dlp ───────────────────────────────────────────────────────
 // Place cookies.txt in backend/ root (export from Chrome using
 // "Get cookies.txt LOCALLY" extension while logged into YouTube).
-// Always use the locally downloaded yt-dlp binary (downloaded by start script).
-// This ensures we always have the latest version that supports current YouTube formats.
-const LOCAL_YTDLP   = path.join(__dirname, '..', 'yt-dlp');
-const youtubedlExec = require('youtube-dl-exec').create(
-    fs.existsSync(LOCAL_YTDLP) ? LOCAL_YTDLP : require('youtube-dl-exec').path
-);
-console.log('yt-dlp binary:', fs.existsSync(LOCAL_YTDLP) ? LOCAL_YTDLP : 'bundled fallback');
+// Use locally downloaded yt-dlp binary (downloaded by start script).
+const LOCAL_YTDLP = path.join(__dirname, '..', 'yt-dlp');
+const YTDLP_BIN   = fs.existsSync(LOCAL_YTDLP) ? LOCAL_YTDLP : 'yt-dlp';
+console.log('yt-dlp binary:', YTDLP_BIN);
 
 const COOKIES_FILE = path.join(__dirname, '..', 'cookies.txt');
 const COOKIES_OPT  = fs.existsSync(COOKIES_FILE) ? { cookies: COOKIES_FILE } : {};
@@ -442,13 +439,23 @@ async function getStreamUrl(videoId) {
 async function _fetchStreamUrl(videoId, cacheKey) {
     try {
         const url = `https://www.youtube.com/watch?v=${videoId}`;
-        const rawOutput = await youtubedlExec(url, {
-            getUrl: true,
-            noCheckCertificates: true,
-            noWarnings: true,
-            format: 'bestaudio/best',
-            noPlaylist: true,
-            ...COOKIES_OPT,
+        // Use execFile directly with the local binary for full control
+        const { execFile } = require('child_process');
+        const args = [
+            url,
+            '--get-url',
+            '--no-check-certificates',
+            '--no-warnings',
+            '--no-playlist',
+            '-f', 'bestaudio/best',
+        ];
+        if (COOKIES_OPT.cookies) args.push('--cookies', COOKIES_OPT.cookies);
+
+        const rawOutput = await new Promise((resolve, reject) => {
+            execFile(YTDLP_BIN, args, { timeout: 30000 }, (err, stdout, stderr) => {
+                if (err) return reject(new Error(stderr || err.message));
+                resolve(stdout);
+            });
         });
 
         const audioUrl = (typeof rawOutput === 'string' ? rawOutput : String(rawOutput))
