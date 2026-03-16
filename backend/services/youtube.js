@@ -1,6 +1,14 @@
-const ytsr = require('ytsr');
+const ytsr      = require('ytsr');
 const youtubedl = require('youtube-dl-exec');
-const axios = require('axios');
+const axios     = require('axios');
+const path      = require('path');
+const fs        = require('fs');
+
+// Resolve cookies once at startup — avoids repeated fs.existsSync calls in hot path.
+// Place cookies.txt in backend/ root (export from Chrome using "Get cookies.txt LOCALLY"
+// extension while logged into YouTube) to bypass bot-detection on cloud server IPs.
+const COOKIES_FILE = path.join(__dirname, '..', 'cookies.txt');
+const COOKIES_OPT  = fs.existsSync(COOKIES_FILE) ? { cookies: COOKIES_FILE } : {};
 
 const CACHE = new Map();
 const STREAM_TTL  = 5  * 60 * 1000;   // 5 min  — stream URLs expire
@@ -404,20 +412,14 @@ async function _fetchStreamUrl(videoId, cacheKey) {
 
         // --get-url is 3-5x faster than --dump-single-json because yt-dlp only
         // needs to resolve the format URL — it skips downloading full metadata.
-        // We request the best audio-only format explicitly.
-        // Use cookies.txt if present — bypasses YouTube bot-detection on cloud IPs
-        const _path = require('path');
-        const _fs   = require('fs');
-        const cookiesFile = _path.join(__dirname, '..', 'cookies.txt');
-        const cookiesOpt  = _fs.existsSync(cookiesFile) ? { cookies: cookiesFile } : {};
-
+        // COOKIES_OPT is resolved once at startup from cookies.txt (if present).
         const rawOutput = await youtubedl(url, {
             getUrl: true,
             noCheckCertificates: true,
             noWarnings: true,
             format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best',
             noPlaylist: true,
-            ...cookiesOpt,
+            ...COOKIES_OPT,
         });
 
         // yt-dlp --get-url can return multiple lines (one per format); take the first
