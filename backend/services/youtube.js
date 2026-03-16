@@ -437,7 +437,7 @@ async function _fetchStreamUrl(videoId, cacheKey) {
             getUrl: true,
             noCheckCertificates: true,
             noWarnings: true,
-            format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best',
+            format: 'bestaudio/best',
             noPlaylist: true,
             ...COOKIES_OPT,
         });
