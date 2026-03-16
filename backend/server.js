@@ -1,4 +1,14 @@
 require('dotenv').config();
+
+// ─── Auto-update yt-dlp on startup ───────────────────────────────────────────
+// The version bundled with youtube-dl-exec gets stale quickly.
+// This updates it in the background so streams work with current YouTube.
+const { execFile } = require('child_process');
+const youtubedlBin = require('youtube-dl-exec').raw;
+execFile(youtubedlBin, ['-U'], (err, stdout, stderr) => {
+    if (err) console.warn('yt-dlp update skipped:', err.message);
+    else console.log('yt-dlp updated:', stdout.trim() || 'already up to date');
+});
 const express = require('express');
 const cors    = require('cors');
 const connectDB = require('./config/db');
