@@ -40,6 +40,8 @@ export function addToRecentlyPlayed(song) {
     try { localStorage.setItem('recentlyPlayed', JSON.stringify(rp)); } catch(e) {}
 
     renderRecentlyPlayed();
+    // Keep profile stats live if the profile page is open
+    if (window.__modules?.profile?.refreshProfileStats) window.__modules.profile.refreshProfileStats();
 
     // Sync to cloud (fire-and-forget)
     if (state.authToken && song.sourceId && song.source) {

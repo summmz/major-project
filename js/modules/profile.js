@@ -20,11 +20,9 @@ export function renderProfilePage() {
 
     const u = state.currentUser;
     const initial = (u.name || 'U').charAt(0).toUpperCase();
-    const likedCount = state.likedSongs?.length || 0;
-    const playlistCount = state.userPlaylists?.length || 0;
-
-    let recentCount = 0;
-    try { recentCount = JSON.parse(localStorage.getItem('recentlyPlayed') || '[]').length; } catch {}
+    const likedCount    = state.likedSongs?.length    || 0;
+    const playlistCount = state.userPlaylists?.length  || 0;
+    const recentCount   = state.recentlyPlayed?.length || 0;
 
     const avatarContent = u.image
         ? `<img src="${u.image}" alt="Avatar" onerror="this.remove()">`
@@ -229,6 +227,17 @@ async function _apiPatch(endpoint, body) {
 }
 
 // ─── Action handlers ──────────────────────────────────────────────────────────
+
+// Call this after any play event to keep stat counters current
+export function refreshProfileStats() {
+    const page = document.getElementById('profilePage');
+    if (!page || !page.classList.contains('active')) return; // only if visible
+    const nums = page.querySelectorAll('.stat-num');
+    if (nums.length < 3) return;
+    nums[0].textContent = state.likedSongs?.length    || 0;
+    nums[1].textContent = state.userPlaylists?.length  || 0;
+    nums[2].textContent = state.recentlyPlayed?.length || 0;
+}
 
 function _bindHandlers() {
     window.__toggleProfileEdit = _toggleEdit;

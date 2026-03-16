@@ -1,6 +1,6 @@
 // === Centralized Application State ===
 
-export const API_BASE = 'http://localhost:3001/api';
+export const API_BASE = 'https://major-project-kuxn.onrender.com/api';
 export let authToken = null;
 export let currentUser = null;
 export let userPlaylists = [];
