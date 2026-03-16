@@ -52,7 +52,10 @@ export function playSong(index, playlistId) {
     _prewarmNext(index);
 }
 
-// Load audio and play — tries redirect stream first, falls back to proxy
+// Load audio and play.
+// /api/songs/stream/:videoId now proxies audio through our server,
+// so there is no CORS block and no redirect to follow.
+// We keep a single tryPlay helper with a timeout safety net.
 async function _loadAndPlay(song) {
     if (!song) return;
 
@@ -73,8 +76,8 @@ async function _loadAndPlay(song) {
         audioPlayer.addEventListener('canplay', onCanPlay, { once: true });
         audioPlayer.addEventListener('error',   onError,   { once: true });
 
-        // Safety timeout — attempt play anyway if canplay never fires
-        timer = setTimeout(() => { cleanup(); resolve('timeout'); }, 4000);
+        // Safety timeout — attempt play anyway if canplay never fires within 8s
+        timer = setTimeout(() => { cleanup(); resolve('timeout'); }, 8000);
     });
 
     const streamUrl = isYT
@@ -83,16 +86,7 @@ async function _loadAndPlay(song) {
 
     const result = await tryPlay(streamUrl);
 
-    if (result === 'error' && isYT) {
-        // Redirect failed — try piping through proxy
-        console.warn('Stream error, falling back to proxy');
-        const proxyUrl = state.API_BASE + '/songs/proxy/' + song.sourceId;
-        const r2 = await tryPlay(proxyUrl);
-        if (r2 === 'error') {
-            showToast('Could not play this song. Trying next...', 'error');
-            return;
-        }
-    } else if (result === 'error') {
+    if (result === 'error') {
         showToast('Could not play this song. Trying next...', 'error');
         return;
     }
@@ -101,8 +95,7 @@ async function _loadAndPlay(song) {
     try {
         await audioPlayer.play();
     } catch (e) {
-        // AbortError can still happen if the user clicks something mid-load;
-        // ignore it silently as it means another play() superseded this one
+        // AbortError fires when another play() supersedes this one — safe to ignore
         if (e.name !== 'AbortError') {
             console.error('play() failed:', e.message);
         }
@@ -787,7 +780,7 @@ function crossfadeToNext() {
     const cfUrl = nextSongData.source === 'youtube' && nextSongData.sourceId
         ? state.API_BASE + '/songs/stream/' + nextSongData.sourceId
         : nextSongData.url;
-    audioB.src = cfUrl; // crossfade uses redirect — proxy fallback not needed here
+    audioB.src = cfUrl; // /stream now proxies through server — no CORS issue
     audioB.volume = 0;
     audioB.play().catch(e => { console.error(e); state.setIsCrossfading(false); });
 

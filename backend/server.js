@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
+const cors    = require('cors');
 const connectDB = require('./config/db');
 
 const authRoutes = require('./routes/auth');
@@ -15,8 +15,16 @@ const recommendationsRoutes = require('./routes/recommendations');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
+// ─── CORS ────────────────────────────────────────────────────────────────────
+// Allow all origins so the Vercel frontend can call the Render backend.
+// For audio proxy routes the browser sends a Range header — we expose it.
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
+    exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],
+}));
+
 app.use(express.json({ limit: '10mb' }));
 
 // Connect to MongoDB

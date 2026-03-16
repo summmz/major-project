@@ -5,11 +5,69 @@ const youtube  = require('../services/youtube');
 
 const router = express.Router();
 
+// ─── Helper: pipe audio from YouTube CDN through our server ──────────────────
+// This is necessary because YouTube CDN URLs don't include CORS headers,
+// so a browser <audio> element cannot fetch them cross-origin directly.
+// By proxying through our server (which adds Access-Control-Allow-Origin: *)
+// the browser can load and play the audio without being blocked.
+function proxyAudio(audioUrl, mimeType, req, res) {
+    const mod = audioUrl.startsWith('https') ? https : http;
+    const headers = {};
+
+    // Forward range requests so seeking works correctly
+    if (req.headers.range) headers.Range = req.headers.range;
+
+    // Some YouTube CDN servers reject requests without a user-agent
+    headers['User-Agent'] = 'Mozilla/5.0 (compatible; AudioProxy/1.0)';
+
+    const proxyReq = mod.get(audioUrl, { headers }, (proxyRes) => {
+        // Always set CORS header so browser allows the audio
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Range');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+
+        res.setHeader('Content-Type', proxyRes.headers['content-type'] || mimeType || 'audio/webm');
+        res.setHeader('Accept-Ranges', 'bytes');
+
+        if (proxyRes.headers['content-length']) res.setHeader('Content-Length',  proxyRes.headers['content-length']);
+        if (proxyRes.headers['content-range'])  res.setHeader('Content-Range',   proxyRes.headers['content-range']);
+
+        // Cache for 4 minutes (stream URLs expire in 5 min)
+        res.setHeader('Cache-Control', 'public, max-age=240');
+
+        res.status(proxyRes.statusCode);
+        proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+        console.error('Proxy pipe error:', err.message);
+        if (!res.headersSent) res.status(502).json({ error: 'Stream pipe failed' });
+    });
+
+    // If client disconnects early, kill the upstream request too
+    req.on('close', () => proxyReq.destroy());
+}
+
+// Handle pre-flight CORS for stream endpoints
+router.options('/stream/:videoId', (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Range');
+    res.sendStatus(204);
+});
+
+router.options('/proxy/:videoId', (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Range');
+    res.sendStatus(204);
+});
+
 // GET /api/songs/stream/:videoId
-// Fast path: resolve the direct YouTube CDN audio URL and redirect the browser to it.
-// This eliminates the server-as-proxy bottleneck — the browser fetches audio directly
-// from YouTube's CDN at full speed with no extra hop through our server.
-// Falls back to proxy streaming only when the redirect fails (e.g. CORS issues in some envs).
+// Resolves the YouTube CDN audio URL and proxies it through our server.
+// This avoids the CORS block that happens when the browser tries to fetch
+// a googlevideo.com URL directly — YouTube CDN doesn't send CORS headers.
 router.get('/stream/:videoId', async (req, res) => {
     try {
         const { videoId } = req.params;
@@ -23,11 +81,8 @@ router.get('/stream/:videoId', async (req, res) => {
             return res.status(404).json({ error: 'Stream not found' });
         }
 
-        // 302 redirect — browser fetches audio directly from YouTube CDN.
-        // Set CORS header so the <audio> element can load it cross-origin.
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Cache-Control', 'no-cache');
-        return res.redirect(302, streamData.url);
+        // Proxy the audio through our server so CORS is never an issue
+        proxyAudio(streamData.url, streamData.mimeType, req, res);
 
     } catch (err) {
         console.error('Stream endpoint error:', err);
@@ -36,8 +91,8 @@ router.get('/stream/:videoId', async (req, res) => {
 });
 
 // GET /api/songs/proxy/:videoId
-// Fallback proxy route — pipes audio through the server.
-// Used automatically by the frontend if the redirect fails.
+// Explicit proxy route — same as /stream but kept for backwards compatibility
+// with any frontend code that calls /proxy/ directly.
 router.get('/proxy/:videoId', async (req, res) => {
     try {
         const { videoId } = req.params;
@@ -51,26 +106,7 @@ router.get('/proxy/:videoId', async (req, res) => {
             return res.status(404).json({ error: 'Stream not found' });
         }
 
-        const audioUrl = streamData.url;
-        const mod = audioUrl.startsWith('https') ? https : http;
-        const headers = {};
-        if (req.headers.range) headers.Range = req.headers.range;
-
-        const proxyReq = mod.get(audioUrl, { headers }, (proxyRes) => {
-            res.setHeader('Content-Type', proxyRes.headers['content-type'] || streamData.mimeType || 'audio/webm');
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            if (proxyRes.headers['content-length'])  res.setHeader('Content-Length',  proxyRes.headers['content-length']);
-            if (proxyRes.headers['content-range'])   res.setHeader('Content-Range',   proxyRes.headers['content-range']);
-            if (proxyRes.headers['accept-ranges'])   res.setHeader('Accept-Ranges',   proxyRes.headers['accept-ranges']);
-            res.status(proxyRes.statusCode);
-            proxyRes.pipe(res);
-        });
-
-        proxyReq.on('error', (err) => {
-            console.error('Proxy stream error:', err.message);
-            if (!res.headersSent) res.status(500).json({ error: 'Stream failed' });
-        });
-        req.on('close', () => proxyReq.destroy());
+        proxyAudio(streamData.url, streamData.mimeType, req, res);
 
     } catch (err) {
         console.error('Proxy endpoint error:', err);
@@ -109,10 +145,6 @@ router.get('/:source/:id', async (req, res) => {
                 });
             }
             return res.status(404).json({ error: 'Stream not found' });
-        }
-
-        if (source === 'jiosaavn' || source === 'piped') {
-            return res.status(410).json({ error: 'Source no longer available' });
         }
 
         res.status(400).json({ error: 'Invalid source' });
