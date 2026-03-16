@@ -1,4 +1,4 @@
-const ytsr      = require('ytsr');
+const ytsr      = require('@distube/ytsr');
 const youtubedl = require('youtube-dl-exec');
 const axios     = require('axios');
 const path      = require('path');
