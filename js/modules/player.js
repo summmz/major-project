@@ -53,13 +53,33 @@ export function playSong(index, playlistId) {
 }
 
 // Load audio and play.
-// /api/songs/stream/:videoId now proxies audio through our server,
-// so there is no CORS block and no redirect to follow.
-// We keep a single tryPlay helper with a timeout safety net.
+// /api/songs/stream/:videoId proxies audio through our server — no CORS issues.
+// If a video is unavailable (404 / age-restricted / region-blocked) we
+// pre-check with a HEAD-style fetch so we can skip silently rather than
+// letting the <audio> element error out.
 async function _loadAndPlay(song) {
     if (!song) return;
 
     const isYT = song.source === 'youtube' && song.sourceId;
+
+    // For YouTube songs, verify the stream is reachable before handing the URL
+    // to the <audio> element. This catches 404s cleanly and lets us skip.
+    if (isYT) {
+        try {
+            const streamUrl = state.API_BASE + '/songs/stream/' + song.sourceId;
+            const check = await fetch(streamUrl, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+            if (!check.ok && check.status !== 206) {
+                // Video unavailable — skip silently to next
+                console.warn('Skipping unavailable video:', song.sourceId, song.title, check.status);
+                nextSong();
+                return;
+            }
+        } catch (e) {
+            console.warn('Stream check failed, skipping:', song.title, e.message);
+            nextSong();
+            return;
+        }
+    }
 
     const tryPlay = (url) => new Promise((resolve) => {
         let timer;
@@ -76,8 +96,8 @@ async function _loadAndPlay(song) {
         audioPlayer.addEventListener('canplay', onCanPlay, { once: true });
         audioPlayer.addEventListener('error',   onError,   { once: true });
 
-        // Safety timeout — attempt play anyway if canplay never fires within 8s
-        timer = setTimeout(() => { cleanup(); resolve('timeout'); }, 8000);
+        // Safety timeout — treat as error if canplay never fires within 10s
+        timer = setTimeout(() => { cleanup(); resolve('error'); }, 10000);
     });
 
     const streamUrl = isYT
@@ -87,7 +107,12 @@ async function _loadAndPlay(song) {
     const result = await tryPlay(streamUrl);
 
     if (result === 'error') {
-        showToast('Could not play this song. Trying next...', 'error');
+        if (isYT) {
+            console.warn('Audio element error, skipping:', song.title);
+            nextSong();
+        } else {
+            showToast('Could not play this song. Trying next...', 'error');
+        }
         return;
     }
 
