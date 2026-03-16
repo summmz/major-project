@@ -6,12 +6,13 @@ const fs        = require('fs');
 // ─── Cookies for yt-dlp ───────────────────────────────────────────────────────
 // Place cookies.txt in backend/ root (export from Chrome using
 // "Get cookies.txt LOCALLY" extension while logged into YouTube).
-// Use locally downloaded yt-dlp binary if available (downloaded via npm build script),
-// otherwise fall back to the one bundled with youtube-dl-exec.
-const LOCAL_YTDLP  = path.join(__dirname, '..', 'yt-dlp');
-const youtubedlExec = fs.existsSync(LOCAL_YTDLP)
-    ? require('youtube-dl-exec').create(LOCAL_YTDLP)
-    : youtubedl;
+// Always use the locally downloaded yt-dlp binary (downloaded by start script).
+// This ensures we always have the latest version that supports current YouTube formats.
+const LOCAL_YTDLP   = path.join(__dirname, '..', 'yt-dlp');
+const youtubedlExec = require('youtube-dl-exec').create(
+    fs.existsSync(LOCAL_YTDLP) ? LOCAL_YTDLP : require('youtube-dl-exec').path
+);
+console.log('yt-dlp binary:', fs.existsSync(LOCAL_YTDLP) ? LOCAL_YTDLP : 'bundled fallback');
 
 const COOKIES_FILE = path.join(__dirname, '..', 'cookies.txt');
 const COOKIES_OPT  = fs.existsSync(COOKIES_FILE) ? { cookies: COOKIES_FILE } : {};
