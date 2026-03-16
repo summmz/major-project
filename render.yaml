@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: major-project-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ./yt-dlp && chmod +x ./yt-dlp
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production

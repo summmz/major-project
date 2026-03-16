@@ -1,12 +1,6 @@
 require('dotenv').config();
 
-// ─── Auto-update yt-dlp on startup ───────────────────────────────────────────
-// Run yt-dlp -U to ensure the binary is current (YouTube format IDs change often)
-const { exec } = require('child_process');
-exec('python3 -m pip install -U yt-dlp 2>/dev/null || yt-dlp -U 2>/dev/null || true', (err, stdout) => {
-    if (stdout?.trim()) console.log('yt-dlp update:', stdout.trim());
-    else console.log('yt-dlp update attempted');
-});
+
 const express = require('express');
 const cors    = require('cors');
 const connectDB = require('./config/db');
