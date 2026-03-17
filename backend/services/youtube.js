@@ -439,21 +439,27 @@ async function getStreamUrl(videoId) {
 async function _fetchStreamUrl(videoId, cacheKey) {
     try {
         const url = `https://www.youtube.com/watch?v=${videoId}`;
-        // Use execFile directly with the local binary for full control
         const { execFile } = require('child_process');
+
+        // Build args — works with both old and new yt-dlp versions
         const args = [
             url,
             '--get-url',
             '--no-check-certificates',
             '--no-warnings',
             '--no-playlist',
+            '-f', 'bestaudio/best',
+            '--extractor-args', 'youtube:player_client=android',
         ];
         if (COOKIES_OPT.cookies) args.push('--cookies', COOKIES_OPT.cookies);
 
+        console.log('yt-dlp cmd:', YTDLP_BIN, args.slice(0,3).join(' '));
+
         const rawOutput = await new Promise((resolve, reject) => {
-            execFile(YTDLP_BIN, args, { timeout: 30000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+            execFile(YTDLP_BIN, args, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
                 if (err) {
-                    const msg = (stderr || err.message || '').trim();
+                    const msg = (stderr || stdout || err.message || '').trim();
+                    console.error('yt-dlp full error:', msg.slice(0, 800));
                     return reject(new Error(msg || 'yt-dlp command failed'));
                 }
                 resolve(stdout);
