@@ -448,8 +448,7 @@ async function _fetchStreamUrl(videoId, cacheKey) {
             '--no-check-certificates',
             '--no-warnings',
             '--no-playlist',
-            '-f', 'bestaudio/best',
-            '--extractor-args', 'youtube:player_client=android',
+            '--extractor-args', 'youtube:player_client=android,web',
         ];
         if (COOKIES_OPT.cookies) args.push('--cookies', COOKIES_OPT.cookies);
 
