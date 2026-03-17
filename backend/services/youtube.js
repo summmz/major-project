@@ -450,7 +450,8 @@ async function _fetchStreamUrl(videoId, cacheKey) {
             '--no-playlist',
             '--extractor-args', 'youtube:player_client=android,web',
         ];
-        if (COOKIES_OPT.cookies) args.push('--cookies', COOKIES_OPT.cookies);
+        // Temporarily disabled cookies to test if they're causing crashes
+        // if (COOKIES_OPT.cookies) args.push('--cookies', COOKIES_OPT.cookies);
 
         console.log('yt-dlp cmd:', YTDLP_BIN, args.slice(0,3).join(' '));
 
