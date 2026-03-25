@@ -57,7 +57,7 @@ export function playSong(index, playlistId) {
 async function _loadAndPlay(song) {
     if (!song) return;
 
-    const isYT     = song.source === 'youtube' && song.sourceId;
+    const isYT     = song.source === 'saavn' && song.sourceId;
     const streamUrl = isYT
         ? state.API_BASE + '/songs/stream/' + song.sourceId
         : song.url;
@@ -749,7 +749,7 @@ function crossfadeToNext() {
 
     if (!nextSongData) { state.setIsCrossfading(false); return; }
 
-    const cfUrl = nextSongData.source === 'youtube' && nextSongData.sourceId
+    const cfUrl = nextSongData.source === 'saavn' && nextSongData.sourceId
         ? state.API_BASE + '/songs/stream/' + nextSongData.sourceId
         : nextSongData.url;
     audioB.src = cfUrl; // crossfade uses redirect — proxy fallback not needed here
@@ -957,13 +957,29 @@ export function setupAudioListeners() {
         nextSong();
     });
 
-    // Auto-skip unavailable videos (404/502 from stream endpoint)
+    // Auto-skip unavailable videos — with cooldown to prevent infinite skip loop
+    let _lastSkipTime = 0;
+    let _skipCount    = 0;
     audioPlayer.addEventListener('error', () => {
         if (!audioPlayer.src || audioPlayer.src === window.location.href) return;
         const song = state.currentSong;
         if (song?.source === 'youtube') {
-            console.warn('Audio error — skipping unavailable video:', song.title);
-            nextSong();
+            const now = Date.now();
+            // Reset counter if last skip was > 10s ago
+            if (now - _lastSkipTime > 10000) _skipCount = 0;
+            _skipCount++;
+            _lastSkipTime = now;
+
+            // Stop skipping if too many errors in a row — server is likely down
+            if (_skipCount > 5) {
+                showToast('Playback unavailable — check connection', 'error');
+                _skipCount = 0;
+                return;
+            }
+
+            console.warn('Audio error — skipping:', song.title, '(skip #' + _skipCount + ')');
+            // Delay skip slightly so we don't hammer the server
+            setTimeout(() => nextSong(), 800);
         }
     });
 
