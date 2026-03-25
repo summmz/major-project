@@ -1,19 +1,4 @@
-const youtubedl = require('youtube-dl-exec');
-const axios     = require('axios');
-const path      = require('path');
-const fs        = require('fs');
-
-// ─── Cookies for yt-dlp ───────────────────────────────────────────────────────
-// Place cookies.txt in backend/ root (export from Chrome using
-// "Get cookies.txt LOCALLY" extension while logged into YouTube).
-// Use locally downloaded yt-dlp binary (downloaded by start script).
-const LOCAL_YTDLP = path.join(__dirname, '..', 'yt-dlp');
-const YTDLP_BIN   = fs.existsSync(LOCAL_YTDLP) ? LOCAL_YTDLP : 'yt-dlp';
-console.log('yt-dlp binary:', YTDLP_BIN);
-
-const COOKIES_FILE = path.join(__dirname, '..', 'cookies.txt');
-const COOKIES_OPT  = fs.existsSync(COOKIES_FILE) ? { cookies: COOKIES_FILE } : {};
-console.log('yt-dlp cookies:', fs.existsSync(COOKIES_FILE) ? 'LOADED ✓' : 'NOT FOUND — bot detection active');
+const axios = require('axios');
 
 // ─── YouTube Data API v3 ──────────────────────────────────────────────────────
 // Used for all search/recommendations — official API, no scraping, no breakage.
@@ -422,7 +407,17 @@ async function getProfileBasedRecommendations(tasteProfile, count = 20) {
     return results.length ? results : getTrendingRecommendations(count);
 }
 
-// ─── Stream (yt-dlp) ──────────────────────────────────────────────────────────
+// ─── Stream via Invidious (no yt-dlp, no bot detection) ──────────────────────
+// Invidious is an open-source YouTube frontend with a public API.
+// We try multiple public instances in order — if one is down, we try the next.
+const INVIDIOUS_INSTANCES = [
+    'https://invidious.privacyredirect.com',
+    'https://inv.nadeko.net',
+    'https://invidious.nikkosphere.com',
+    'https://yt.cdaut.de',
+    'https://invidious.darkness.services',
+];
+
 const _inflight = new Map();
 
 async function getStreamUrl(videoId) {
@@ -437,57 +432,34 @@ async function getStreamUrl(videoId) {
 }
 
 async function _fetchStreamUrl(videoId, cacheKey) {
-    try {
-        const url = `https://www.youtube.com/watch?v=${videoId}`;
-        const { execFile } = require('child_process');
-
-        // Build args — works with both old and new yt-dlp versions
-        const args = [
-            url,
-            '--get-url',
-            '--no-check-certificates',
-            '--no-warnings',
-            '--no-playlist',
-            '--socket-timeout', '10',
-        ];
-        // NOTE: cookies.txt disabled — was causing silent hangs on Render
-        // Re-enable after verifying cookies.txt is valid Netscape format
-        // if (COOKIES_OPT.cookies) args.push('--cookies', COOKIES_OPT.cookies);
-
-        console.log('yt-dlp cmd:', YTDLP_BIN, args.slice(0,3).join(' '));
-
-        const rawOutput = await new Promise((resolve, reject) => {
-            execFile(YTDLP_BIN, args, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
-                if (err) {
-                    const msg = (stderr || stdout || err.message || '').trim();
-                    console.error('yt-dlp full error:', msg.slice(0, 800));
-                    return reject(new Error(msg || 'yt-dlp command failed'));
-                }
-                resolve(stdout);
+    for (const instance of INVIDIOUS_INSTANCES) {
+        try {
+            const res = await axios.get(`${instance}/api/v1/videos/${videoId}`, {
+                timeout: 8000,
+                headers: { 'User-Agent': 'Mozilla/5.0' },
             });
-        });
 
-        const audioUrl = (typeof rawOutput === 'string' ? rawOutput : String(rawOutput))
-            .split('\n').map(l => l.trim()).filter(l => l.startsWith('http'))[0];
+            const formats = res.data.adaptiveFormats || [];
 
-        if (!audioUrl) return null;
+            // Prefer opus/webm audio, fall back to any audio format
+            const audio = formats
+                .filter(f => f.type?.startsWith('audio/'))
+                .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
 
-        const cleanUrl = (() => {
-            try {
-                const u = new URL(audioUrl);
-                ['begin', 'rn', 'initrnums', 'ratebypass'].forEach(p => u.searchParams.delete(p));
-                return u.toString();
-            } catch { return audioUrl; }
-        })();
+            if (!audio?.url) continue;
 
-        const mimeType = cleanUrl.includes('.m4a') || cleanUrl.includes('mime=audio%2Fmp4') ? 'audio/mp4' : 'audio/webm';
-        const result   = { url: cleanUrl, mimeType, bitrate: 128, duration: 0, title: '', artist: '', thumbnail: '' };
-        setCache(cacheKey, result);
-        return result;
-    } catch (err) {
-        console.error('YouTube get stream error:', err.message);
-        return null;
+            const mimeType = audio.type?.split(';')[0] || 'audio/webm';
+            const result   = { url: audio.url, mimeType, bitrate: audio.bitrate || 128, duration: 0, title: '', artist: '', thumbnail: '' };
+            console.log('Stream resolved via:', instance, 'for', videoId);
+            setCache(cacheKey, result);
+            return result;
+        } catch (err) {
+            console.warn('Invidious instance failed:', instance, err.message);
+            continue;
+        }
     }
+    console.error('All Invidious instances failed for:', videoId);
+    return null;
 }
 
 function prewarmStream(videoId) {
