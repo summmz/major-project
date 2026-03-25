@@ -12,7 +12,7 @@ const YTDLP_BIN   = fs.existsSync(LOCAL_YTDLP) ? LOCAL_YTDLP : 'yt-dlp';
 console.log('yt-dlp binary:', YTDLP_BIN);
 
 const COOKIES_FILE = path.join(__dirname, '..', 'cookies.txt');
-const COOKIES_OPT  = fs.existsSync(COOKIES_FILE) ? { cookies: 'cookies.txt' } : {};
+const COOKIES_OPT  = fs.existsSync(COOKIES_FILE) ? { cookies: COOKIES_FILE } : {};
 console.log('yt-dlp cookies:', fs.existsSync(COOKIES_FILE) ? 'LOADED ✓' : 'NOT FOUND — bot detection active');
 
 // ─── YouTube Data API v3 ──────────────────────────────────────────────────────
@@ -439,21 +439,33 @@ async function getStreamUrl(videoId) {
 async function _fetchStreamUrl(videoId, cacheKey) {
     try {
         const url = `https://www.youtube.com/watch?v=${videoId}`;
+        const { execFile } = require('child_process');
 
-        // Build options mapped to arguments for youtube-dl-exec
-        const options = {
-            getUrl: true,
-            noCheckCertificates: true,
-            noWarnings: true,
-            noPlaylist: true,
-        };
-        if (COOKIES_OPT.cookies) {
-            options.cookies = COOKIES_OPT.cookies;
-        }
+        // Build args — works with both old and new yt-dlp versions
+        const args = [
+            url,
+            '--get-url',
+            '--no-check-certificates',
+            '--no-warnings',
+            '--no-playlist',
+            '--socket-timeout', '10',
+        ];
+        // NOTE: cookies.txt disabled — was causing silent hangs on Render
+        // Re-enable after verifying cookies.txt is valid Netscape format
+        // if (COOKIES_OPT.cookies) args.push('--cookies', COOKIES_OPT.cookies);
 
-        console.log('yt-dlp cmd via youtube-dl-exec for:', url);
+        console.log('yt-dlp cmd:', YTDLP_BIN, args.slice(0,3).join(' '));
 
-        const rawOutput = await youtubedl(url, options);
+        const rawOutput = await new Promise((resolve, reject) => {
+            execFile(YTDLP_BIN, args, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+                if (err) {
+                    const msg = (stderr || stdout || err.message || '').trim();
+                    console.error('yt-dlp full error:', msg.slice(0, 800));
+                    return reject(new Error(msg || 'yt-dlp command failed'));
+                }
+                resolve(stdout);
+            });
+        });
 
         const audioUrl = (typeof rawOutput === 'string' ? rawOutput : String(rawOutput))
             .split('\n').map(l => l.trim()).filter(l => l.startsWith('http'))[0];
