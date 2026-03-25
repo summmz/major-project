@@ -407,15 +407,23 @@ async function getProfileBasedRecommendations(tasteProfile, count = 20) {
     return results.length ? results : getTrendingRecommendations(count);
 }
 
-// ─── Stream via Invidious (no yt-dlp, no bot detection) ──────────────────────
-// Invidious is an open-source YouTube frontend with a public API.
-// We try multiple public instances in order — if one is down, we try the next.
+// ─── Stream via Piped + Invidious (no yt-dlp, no bot detection) ──────────────
+// Try Piped API first (faster), then fall back to Invidious instances.
+const PIPED_INSTANCES = [
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.adminforge.de',
+    'https://piped-api.garudalinux.org',
+    'https://api.piped.projectsegfau.lt',
+    'https://pipedapi.coldforge.xyz',
+];
+
 const INVIDIOUS_INSTANCES = [
     'https://invidious.privacyredirect.com',
     'https://inv.nadeko.net',
     'https://invidious.nikkosphere.com',
-    'https://yt.cdaut.de',
     'https://invidious.darkness.services',
+    'https://vid.puffyan.us',
+    'https://invidious.lunar.icu',
 ];
 
 const _inflight = new Map();
@@ -432,33 +440,51 @@ async function getStreamUrl(videoId) {
 }
 
 async function _fetchStreamUrl(videoId, cacheKey) {
+    // ── Try Piped instances first ─────────────────────────────────────────────
+    for (const instance of PIPED_INSTANCES) {
+        try {
+            const res = await axios.get(`${instance}/streams/${videoId}`, {
+                timeout: 8000,
+                headers: { 'User-Agent': 'Mozilla/5.0' },
+            });
+            const streams = res.data.audioStreams || [];
+            const audio   = streams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+            if (!audio?.url) continue;
+
+            const mimeType = audio.mimeType?.split(';')[0] || 'audio/webm';
+            const result   = { url: audio.url, mimeType, bitrate: audio.bitrate || 128, duration: 0, title: '', artist: '', thumbnail: '' };
+            console.log('Stream via Piped:', instance, videoId);
+            setCache(cacheKey, result);
+            return result;
+        } catch (err) {
+            console.warn('Piped failed:', instance, err.message?.slice(0, 60));
+        }
+    }
+
+    // ── Fall back to Invidious instances ──────────────────────────────────────
     for (const instance of INVIDIOUS_INSTANCES) {
         try {
             const res = await axios.get(`${instance}/api/v1/videos/${videoId}`, {
                 timeout: 8000,
                 headers: { 'User-Agent': 'Mozilla/5.0' },
             });
-
             const formats = res.data.adaptiveFormats || [];
-
-            // Prefer opus/webm audio, fall back to any audio format
-            const audio = formats
+            const audio   = formats
                 .filter(f => f.type?.startsWith('audio/'))
                 .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-
             if (!audio?.url) continue;
 
             const mimeType = audio.type?.split(';')[0] || 'audio/webm';
             const result   = { url: audio.url, mimeType, bitrate: audio.bitrate || 128, duration: 0, title: '', artist: '', thumbnail: '' };
-            console.log('Stream resolved via:', instance, 'for', videoId);
+            console.log('Stream via Invidious:', instance, videoId);
             setCache(cacheKey, result);
             return result;
         } catch (err) {
-            console.warn('Invidious instance failed:', instance, err.message);
-            continue;
+            console.warn('Invidious failed:', instance, err.message?.slice(0, 60));
         }
     }
-    console.error('All Invidious instances failed for:', videoId);
+
+    console.error('All stream sources failed for:', videoId);
     return null;
 }
 
